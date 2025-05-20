@@ -8,6 +8,7 @@ This is an Ansible-based Laravel development environment setup tool. It automate
 - Node.js and Composer installation
 - Multiple Laravel site management
 - Git repository integration
+- Custom port configuration for sites
 - Database setup and configuration
 - Easy-to-use shell scripts for common tasks
 
@@ -46,20 +47,31 @@ This will:
 - Create a new site directory at `/var/www/mysite`
 - Install a fresh Laravel project
 - Create a MySQL database named `mysite`
-- Configure Nginx with the domain `example.local`
+- Configure Nginx with the domain `example.local` on port 80
 - Set up proper permissions
+
+### Setting Up a Site with Custom Port
+
+You can specify a custom port for your site:
+
+```bash
+sudo ./setup-site.sh mysite example.local 8080
+```
+
+This will configure Nginx to listen on port 8080 instead of the default port 80.
 
 ### Cloning an Existing Laravel Project
 
 To set up a site from an existing Git repository:
 
 ```bash
-sudo ./setup-site.sh mysite example.local https://github.com/username/laravel-project.git main
+sudo ./setup-site.sh mysite example.local 80 https://github.com/username/laravel-project.git main
 ```
 
 Where:
 - `mysite` - The site name (used for directory and default database name)
 - `example.local` - The domain name
+- `80` - The port number (use any available port)
 - `https://github.com/username/laravel-project.git` - Git repository URL
 - `main` - Branch name (optional, defaults to 'main')
 
@@ -72,11 +84,13 @@ vars:
   laravel_sites:
     - name: site1
       domain: site1.local
+      port: 80
       db_connection: mysql
       db_database: site1_db
       
     - name: site2
       domain: site2.local
+      port: 8080
       git_repo: https://github.com/username/site2.git
       git_branch: develop
       db_connection: pgsql
@@ -111,4 +125,5 @@ Common issues:
 
 1. **Permission problems**: Run the setup script with sudo
 2. **Domain not accessible**: Add the domain to your local hosts file
-3. **Database connection issues**: Check your .env file configuration 
+3. **Database connection issues**: Check your .env file configuration
+4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service 

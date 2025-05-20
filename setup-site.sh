@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to create a new Laravel site
-# Usage: ./setup-site.sh sitename [domain] [git_repo] [git_branch]
+# Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch]
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -17,7 +17,7 @@ fi
 # Get site name
 if [ -z "$1" ]; then
   echo -e "${RED}Error: Site name is required${NC}"
-  echo "Usage: ./setup-site.sh sitename [domain] [git_repo] [git_branch]"
+  echo "Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch]"
   exit 1
 fi
 
@@ -30,11 +30,18 @@ else
   DOMAIN=$2
 fi
 
+# Get port (default to 80)
+if [ -z "$3" ]; then
+  PORT="80"
+else
+  PORT=$3
+fi
+
 # Get Git repository (optional)
-GIT_REPO=${3:-""}
+GIT_REPO=${4:-""}
 
 # Get Git branch (default to main if repo is provided)
-GIT_BRANCH=${4:-"main"}
+GIT_BRANCH=${5:-"main"}
 
 # Database type - default to MySQL
 DB_TYPE="mysql"
@@ -54,6 +61,7 @@ cat > /tmp/site_setup.yml << EOF
     laravel_sites:
       - name: ${SITE_NAME}
         domain: ${DOMAIN}
+        port: ${PORT}
         db_connection: ${DB_TYPE}
         db_database: ${DB_NAME}
         git_repo: "${GIT_REPO}"
@@ -88,6 +96,7 @@ cat > /tmp/site_setup.yml << EOF
       vars:
         site_name: "{{ site.name }}"
         site_domain: "{{ site.domain | default(site.name + '.local') }}"
+        site_port: "{{ site.port | default('80') }}"
         git_repo: "{{ site.git_repo | default('') }}"
         git_branch: "{{ site.git_branch | default('main') }}"
         copy_env: "{{ site.copy_env | default(true) }}"
@@ -118,16 +127,17 @@ cat > /tmp/site_setup.yml << EOF
       debug:
         msg: |
           Laravel site configured:
-          - {{ laravel_sites[0].name }} ({{ laravel_sites[0].domain | default(laravel_sites[0].name + '.local') }})
+          - {{ laravel_sites[0].name }} ({{ laravel_sites[0].domain | default(laravel_sites[0].name + '.local') }}) on port {{ laravel_sites[0].port | default('80') }}
           
           You can access this site at:
-          http://{{ laravel_sites[0].domain | default(laravel_sites[0].name + '.local') }}
+          http://{{ laravel_sites[0].domain | default(laravel_sites[0].name + '.local') }}{% if laravel_sites[0].port | default('80') != '80' %}:{{ laravel_sites[0].port }}{% endif %}
           
           Site path: /var/www/{{ laravel_sites[0].name }}/
 EOF
 
 echo -e "${BLUE}Setting up Laravel site: ${SITE_NAME}${NC}"
 echo -e "${BLUE}Domain: ${DOMAIN}${NC}"
+echo -e "${BLUE}Port: ${PORT}${NC}"
 if [ -n "$GIT_REPO" ]; then
   echo -e "${BLUE}Git Repository: ${GIT_REPO} (branch: ${GIT_BRANCH})${NC}"
 else
@@ -143,7 +153,11 @@ rm /tmp/site_setup.yml
 
 echo -e "${GREEN}Site setup complete!${NC}"
 echo -e "${GREEN}Your Laravel site is available at:${NC}"
-echo -e "${GREEN}http://${DOMAIN}${NC}"
+if [ "$PORT" = "80" ]; then
+  echo -e "${GREEN}http://${DOMAIN}${NC}"
+else
+  echo -e "${GREEN}http://${DOMAIN}:${PORT}${NC}"
+fi
 echo -e "${GREEN}Local path: /var/www/${SITE_NAME}/${NC}"
 
 # Get services status
@@ -165,8 +179,14 @@ echo ""
 echo "🌐 Site Information:"
 echo "  - Site Name: $SITE_NAME"
 echo "  - Domain: $DOMAIN"
-echo "  - URL: http://${PUBLIC_IP}/"
-echo "  - URL: http://${DOMAIN}/ (add to your hosts file)"
+echo "  - Port: $PORT"
+if [ "$PORT" = "80" ]; then
+  echo "  - URL: http://${PUBLIC_IP}/"
+  echo "  - URL: http://${DOMAIN}/ (add to your hosts file)"
+else
+  echo "  - URL: http://${PUBLIC_IP}:${PORT}/"
+  echo "  - URL: http://${DOMAIN}:${PORT}/ (add to your hosts file)"
+fi
 echo "  - Path: /var/www/${SITE_NAME}/"
 echo ""
 echo "💾 Database Information:"

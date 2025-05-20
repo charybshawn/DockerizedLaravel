@@ -13,6 +13,7 @@
       # Example site configuration:
       # - name: mysite1
       #   domain: mysite1.local
+      #   port: 8001
       #   git_repo: https://github.com/yourname/mysite1.git
       #   git_branch: main
       #   db_connection: mysql
@@ -74,6 +75,7 @@
       vars:
         site_name: "{{ site.name }}"
         site_domain: "{{ site.domain | default(site.name + '.local') }}"
+        site_port: "{{ site.port | default('80') }}"
         git_repo: "{{ site.git_repo | default('') }}"
         git_branch: "{{ site.git_branch | default('main') }}"
         copy_env: "{{ site.copy_env | default(true) }}"
@@ -108,12 +110,12 @@
           {% if laravel_sites is defined and laravel_sites | length > 0 %}
           Laravel sites configured:
           {% for site in laravel_sites %}
-          - {{ site.name }} ({{ site.domain | default(site.name + '.local') }})
+          - {{ site.name }} ({{ site.domain | default(site.name + '.local') }}) on port {{ site.port | default('80') }}
           {% endfor %}
           
           You can access these sites at:
           {% for site in laravel_sites %}
-          http://{{ site.domain | default(site.name + '.local') }}
+          http://{{ site.domain | default(site.name + '.local') }}{% if site.port | default('80') != '80' %}:{{ site.port }}{% endif %}
           {% endfor %}
           {% else %}
           No Laravel sites were configured. Add sites to the laravel_sites variable to configure them.

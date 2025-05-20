@@ -85,6 +85,7 @@
   vars:
     server_name: "{{ site_domain | default(site_name + '.local') }}"
     root_directory: "/var/www/{{ site_name }}/public"
+    port: "{{ site_port | default('80') }}"
 
 - name: Enable Nginx server block
   file:

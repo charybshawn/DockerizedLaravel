@@ -1,5 +1,5 @@
 server {
-    listen 80;
+    listen {{ port | default('80') }};
     server_name {{ server_name }};
     root {{ root_directory }};
 
