@@ -13,35 +13,45 @@
     group: www-data
     mode: '0755'
 
-- name: Check if repository is public
-  uri:
-    url: "{{ (git_repo | regex_replace('https://github.com/', 'https://api.github.com/repos/') | regex_replace('\\.git$', '')) }}"
-    status_code: [200, 401, 404]
-  register: repo_check
-  when: git_repo is defined and git_repo != "" and git_repo is search('github.com')
-  failed_when: false
-  ignore_errors: yes
+- name: Debug Git repository information
+  debug:
+    msg: "Git repo: {{ git_repo }} (Branch: {{ git_branch | default('main') }})"
+  when: git_repo is defined and git_repo != ""
 
-- name: Clone public Laravel repository if git_repo is provided
+- name: Normalize GitHub URL if using HTTP protocol
+  set_fact:
+    normalized_git_repo: "{{ git_repo | regex_replace('^http://', 'https://') }}"
+  when: git_repo is defined and git_repo != "" and git_repo is search('^http://github.com')
+
+- name: Use original Git repo URL if not normalized
+  set_fact:
+    normalized_git_repo: "{{ git_repo }}"
+  when: git_repo is defined and git_repo != "" and (normalized_git_repo is not defined)
+
+- name: Clone Laravel repository
   git:
-    repo: "{{ git_repo }}"
+    repo: "{{ normalized_git_repo | default(git_repo) }}"
     dest: "/var/www/{{ site_name }}"
     version: "{{ git_branch | default('main') }}"
     accept_hostkey: yes
-  when: 
-    - git_repo is defined and git_repo != ""
-    - repo_check is not defined or repo_check.status == 200
+  register: git_clone_result
+  ignore_errors: yes
+  when: git_repo is defined and git_repo != ""
   become: yes
   become_user: "{{ site_user }}"
-  ignore_errors: yes
 
-- name: Create fresh Laravel project if cloning fails or no git repo specified
+- name: Debug Git clone result
+  debug:
+    var: git_clone_result
+  when: git_repo is defined and git_repo != ""
+
+- name: Create fresh Laravel project if Git clone fails or no Git repo specified
   shell: composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction
   args:
     creates: "/var/www/{{ site_name }}/artisan"
   become: yes
   become_user: "{{ site_user }}"
-  when: (git_repo is not defined or git_repo == "") or (repo_check is defined and repo_check.status != 200)
+  when: (git_repo is not defined or git_repo == "") or (git_clone_result is defined and git_clone_result.failed)
 
 - name: Copy .env file if provided
   template:
@@ -91,7 +101,7 @@
 
 - name: Create Nginx server block
   template:
-    src: "{{ nginx_template | default('../templates/laravel_nginx.j2') }}"
+    src: "{{ nginx_template | default('templates/laravel_nginx.j2') }}"
     dest: "/etc/nginx/sites-available/{{ site_name }}"
     owner: root
     group: root

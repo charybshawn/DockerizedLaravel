@@ -41,12 +41,20 @@ fi
 # Get Git repository (optional)
 GIT_REPO=${4:-""}
 
-# Check if using HTTPS for GitHub
-if [[ "$GIT_REPO" == *"https://github.com"* ]]; then
-  echo -e "${YELLOW}Warning: Using HTTPS for GitHub repository URLs.${NC}"
+# Check if using HTTPS or HTTP for GitHub
+if [[ "$GIT_REPO" == *"github.com"* ]]; then
+  echo -e "${YELLOW}Warning: Using GitHub repository URLs.${NC}"
   echo -e "${YELLOW}GitHub no longer supports password authentication for Git operations.${NC}"
+  
+  # Convert http to https if needed
+  if [[ "$GIT_REPO" == "http://github.com"* ]]; then
+    HTTPS_URL=$(echo "$GIT_REPO" | sed 's|http://github.com|https://github.com|')
+    echo -e "${YELLOW}Converting HTTP GitHub URL to HTTPS: ${HTTPS_URL}${NC}"
+    GIT_REPO=$HTTPS_URL
+  fi
+  
   echo -e "${YELLOW}If this is a private repository, consider using an SSH URL (git@github.com:username/repo.git) instead.${NC}"
-  echo -e "${YELLOW}For public repositories, the script will attempt to clone anonymously.${NC}"
+  echo -e "${YELLOW}For public repositories, the script will attempt to clone using HTTPS.${NC}"
   echo ""
   
   # Ask if they want to continue or switch to SSH
