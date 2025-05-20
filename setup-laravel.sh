@@ -121,9 +121,12 @@ fi
 # Get public IP
 PUBLIC_IP=$(hostname -I | awk '{print $1}')
 
-# Check if sample site was created
+# Check if sample site was created - look for both directory and Nginx config
 SAMPLE_SITE=""
-if [ -d "/var/www/laravel" ]; then
+if [ -d "/var/www/laravel" ] && [ -f "/etc/nginx/sites-available/laravel" ]; then
+    SAMPLE_SITE="laravel"
+elif [ -d "/var/www/laravel" ]; then
+    echo -e "${YELLOW}Warning: Laravel directory exists but no Nginx config found. Sample site may not be fully configured.${NC}"
     SAMPLE_SITE="laravel"
 fi
 

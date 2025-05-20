@@ -35,11 +35,13 @@
       prompt: "Sample site name (URL will be this.local)"
       private: no
       default: "laravel"
+      when: create_sample_site | lower == 'yes'
       
     - name: sample_site_php_version
       prompt: "PHP version for sample site"
       private: no
       default: "{{ default_php_version }}"
+      when: create_sample_site | lower == 'yes'
   
   vars:
     # Set a flag to determine if sample site should be created
@@ -48,6 +50,9 @@
     current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
     # Parse PHP versions
     php_version_list: "{{ php_versions.split() }}"
+    # Define sample site defaults when not prompted
+    sample_site_name: "{{ sample_site_name | default('laravel') }}"
+    sample_site_php_version: "{{ sample_site_php_version | default(default_php_version) }}"
       
   tasks:
     - name: Display current user
