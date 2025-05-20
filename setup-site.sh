@@ -76,7 +76,49 @@ ansible-playbook playbooks/manage_laravel_sites.yml -i inventory/hosts.yml -e "@
 # Clean up
 rm $CONFIG_FILE
 
+# Get services status
+NGINX_STATUS=$(systemctl is-active nginx)
+DB_STATUS=$(systemctl is-active $([[ "$DB_TYPE" == "mysql" ]] && echo "mysql" || echo "postgresql"))
+PHP_STATUS=$(systemctl is-active php8.1-fpm)
+
+# Get public IP
+PUBLIC_IP=$(hostname -I | awk '{print $1}')
+
 echo ""
 echo "✅ Site $SITE_NAME setup complete!"
-echo "🌐 You can access your site at: http://$DOMAIN_NAME"
+echo ""
+echo "📊 Site Summary:"
+echo "===================================================="
+echo "🔧 Services Status:"
+echo "  - Nginx: ${NGINX_STATUS}"
+echo "  - Database ($DB_TYPE): ${DB_STATUS}"
+echo "  - PHP-FPM: ${PHP_STATUS}"
+echo ""
+echo "🌐 Site Information:"
+echo "  - Site Name: $SITE_NAME"
+echo "  - Domain: $DOMAIN_NAME"
+echo "  - URL: http://${PUBLIC_IP}/"
+echo "  - URL: http://${DOMAIN_NAME}/ (add to your hosts file)"
+echo "  - Path: /var/www/${SITE_NAME}/"
+echo ""
+echo "💾 Database Information:"
+echo "  - Type: $DB_TYPE"
+echo "  - Name: $DB_NAME"
+echo "  - User: $DB_USER"
+echo "  - Port: $([ "$DB_TYPE" == "mysql" ] && echo "3306" || echo "5432")"
+echo ""
+
+# Check if .env file exists to extract APP_URL
+if [ -f "/var/www/${SITE_NAME}/.env" ]; then
+    APP_URL=$(grep APP_URL /var/www/${SITE_NAME}/.env | cut -d= -f2)
+    APP_ENV=$(grep APP_ENV /var/www/${SITE_NAME}/.env | cut -d= -f2)
+    echo "⚙️ Environment:"
+    echo "  - APP_URL: $APP_URL"
+    echo "  - APP_ENV: $APP_ENV"
+    echo ""
+fi
+
+echo "===================================================="
+echo "To access your site, add this entry to your local machine's hosts file:"
+echo "${PUBLIC_IP} ${DOMAIN_NAME}"
 echo "" 

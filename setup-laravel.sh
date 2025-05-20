@@ -88,7 +88,53 @@ pip3 install -r requirements.txt
 echo "Running Ansible playbook..."
 ansible-playbook main.yml -i inventory/hosts.yml
 
+# Get services status
+NGINX_STATUS=$(systemctl is-active nginx)
+MYSQL_STATUS=$(systemctl is-active mysql)
+POSTGRESQL_STATUS=$(systemctl is-active postgresql)
+PHP_STATUS=$(systemctl is-active php8.1-fpm)
+
+# Get public IP
+PUBLIC_IP=$(hostname -I | awk '{print $1}')
+
+# Check if sample site was created
+SAMPLE_SITE=""
+if [ -d "/var/www/laravel" ]; then
+    SAMPLE_SITE="laravel"
+fi
+
 echo ""
 echo "✅ Laravel environment setup complete!"
 echo "✅ SSH has been set up for user $ACTUAL_USER"
+echo ""
+echo "📊 Environment Summary:"
+echo "===================================================="
+echo "🔧 Services Status:"
+echo "  - Nginx: ${NGINX_STATUS}"
+echo "  - MySQL: ${MYSQL_STATUS}"
+echo "  - PostgreSQL: ${POSTGRESQL_STATUS}"
+echo "  - PHP-FPM: ${PHP_STATUS}"
+echo ""
+echo "🌐 Network Information:"
+echo "  - Server IP: ${PUBLIC_IP}"
+echo "  - Web Port: 80 (HTTP)"
+echo "  - SSH Port: 22"
+echo "  - MySQL Port: 3306"
+echo "  - PostgreSQL Port: 5432"
+echo ""
+
+if [ -n "$SAMPLE_SITE" ]; then
+    echo "🚀 Sample Laravel Site:"
+    echo "  - Site: $SAMPLE_SITE"
+    echo "  - URL: http://${PUBLIC_IP}/"
+    echo "  - URL: http://${SAMPLE_SITE}.local/ (add to your hosts file)"
+    echo "  - Path: /var/www/${SAMPLE_SITE}/"
+else
+    echo "ℹ️ No sample site was created."
+    echo "  - Run './setup-site.sh' to create a new Laravel site"
+fi
+
+echo ""
+echo "===================================================="
+echo "To create additional Laravel sites run: sudo ./setup-site.sh"
 echo "" 

@@ -160,8 +160,6 @@
     # Node.js Installation
     - name: Install Node.js repository
       shell: curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
-      args:
-        warn: false
       when: ansible_os_family == "Debian"
       
     - name: Install Node.js
@@ -278,6 +276,70 @@
       vars:
         server_name: "{{ ansible_hostname }}"
         php_version: "8.1"
+        
+    # Get service status for summary
+    - name: Get Nginx status
+      command: systemctl is-active nginx
+      register: nginx_status
+      changed_when: false
+      failed_when: false
+      
+    - name: Get MySQL status
+      command: systemctl is-active mysql
+      register: mysql_status
+      changed_when: false
+      failed_when: false
+      
+    - name: Get PostgreSQL status
+      command: systemctl is-active postgresql
+      register: postgresql_status
+      changed_when: false
+      failed_when: false
+      
+    - name: Get PHP-FPM status
+      command: systemctl is-active php8.1-fpm
+      register: php_status
+      changed_when: false
+      failed_when: false
+      
+    - name: Get server IP
+      command: hostname -I
+      register: server_ip
+      changed_when: false
+      
+    # Display summary
+    - name: Display environment summary
+      debug:
+        msg: |
+          
+          📊 Environment Setup Summary:
+          ====================================================
+          🔧 Services Status:
+            - Nginx: {{ nginx_status.stdout }}
+            - MySQL: {{ mysql_status.stdout }}
+            - PostgreSQL: {{ postgresql_status.stdout }}
+            - PHP-FPM: {{ php_status.stdout }}
+          
+          🌐 Network Information:
+            - Server IP: {{ server_ip.stdout.split()[0] }}
+            - Web Port: 80 (HTTP)
+            - MySQL Port: 3306
+            - PostgreSQL Port: 5432
+          
+          {% if create_sample %}
+          🚀 Sample Laravel Site:
+            - Site: {{ sample_site_name }}
+            - URL: http://{{ server_ip.stdout.split()[0] }}/
+            - URL: http://{{ sample_site_name }}.local/ (add to your hosts file)
+            - Path: /var/www/{{ sample_site_name }}/
+          {% else %}
+          ℹ️ No sample site was created during setup.
+            - Run './setup-site.sh' to create a new Laravel site
+          {% endif %}
+          
+          ====================================================
+          Your Laravel development environment is ready!
+      
 
   handlers:
     - name: restart nginx
