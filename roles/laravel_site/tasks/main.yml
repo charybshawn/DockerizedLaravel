@@ -45,12 +45,13 @@
 
 - name: Copy .env file if provided
   template:
-    src: "{{ env_template | default('../templates/laravel.env.j2') }}"
+    src: "{{ env_template | default('templates/laravel.env.j2') }}"
     dest: "/var/www/{{ site_name }}/.env"
     owner: "{{ site_user }}"
     group: www-data
     mode: '0640'
   when: copy_env | default(true) | bool
+  ignore_errors: yes
 
 - name: Set proper permissions for Laravel directories
   file:

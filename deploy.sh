@@ -21,13 +21,17 @@ echo -e "${BLUE}Preparing to deploy Laravel Ansible environment to ${DESTINATION
 
 # Create directory structure on remote server
 echo -e "${BLUE}Creating directory structure...${NC}"
-ssh $DESTINATION "mkdir -p ~/ansible/webserver/templates ~/ansible/webserver/roles/laravel_site/tasks ~/ansible/webserver/playbooks"
+ssh $DESTINATION "mkdir -p ~/ansible/webserver/templates ~/ansible/webserver/roles/laravel_site/tasks ~/ansible/webserver/roles/laravel_site/templates ~/ansible/webserver/playbooks"
 
 # Copy template files
 echo -e "${BLUE}Copying template files...${NC}"
 scp templates/laravel.env.j2 $DESTINATION:~/ansible/webserver/templates/
 scp templates/laravel_nginx.j2 $DESTINATION:~/ansible/webserver/templates/
 scp templates/server_info.j2 $DESTINATION:~/ansible/webserver/templates/
+
+# Copy role templates
+echo -e "${BLUE}Copying role template files...${NC}"
+scp roles/laravel_site/templates/laravel.env.j2 $DESTINATION:~/ansible/webserver/roles/laravel_site/templates/
 
 # Copy role files
 echo -e "${BLUE}Copying role files...${NC}"
