@@ -98,12 +98,19 @@ PHP_VERSIONS=${PHP_VERSIONS:-"8.1"}
 read -p "Enter default PHP version: " DEFAULT_PHP_VERSION
 DEFAULT_PHP_VERSION=${DEFAULT_PHP_VERSION:-"8.1"}
 
+# Prompt for Node.js version
+read -p "Enter Node.js version to install (18, 20, or 'lts'): " NODE_VERSION
+NODE_VERSION=${NODE_VERSION:-"lts"}
+if [ "$NODE_VERSION" = "lts" ]; then
+  NODE_VERSION="18" # Current LTS version
+fi
+
 # Ask about sample site
 read -p "Create a sample Laravel site? (yes/no) [no]: " CREATE_SAMPLE_SITE
 CREATE_SAMPLE_SITE=${CREATE_SAMPLE_SITE:-"no"}
 
 # Export variables so they can be used by Ansible
-export ANSIBLE_EXTRA_VARS="php_versions='$PHP_VERSIONS' default_php_version='$DEFAULT_PHP_VERSION' create_sample_site='$CREATE_SAMPLE_SITE'"
+export ANSIBLE_EXTRA_VARS="php_versions='$PHP_VERSIONS' default_php_version='$DEFAULT_PHP_VERSION' create_sample_site='$CREATE_SAMPLE_SITE' node_version='$NODE_VERSION'"
 
 # Run the Ansible playbook
 echo -e "${BLUE}Running Ansible playbook...${NC}"

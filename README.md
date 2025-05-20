@@ -4,8 +4,10 @@ This is an Ansible-based Laravel development environment setup tool. It automate
 
 ## Features
 
-- Complete LEMP stack installation (Linux, Nginx, MySQL, PostgreSQL, PHP 8.1)
-- Node.js and Composer installation
+- Complete LEMP stack installation (Linux, Nginx, MySQL, PostgreSQL, PHP)
+- Multiple PHP version support (8.1, 8.2, 8.3)
+- Node.js LTS installation (configurable version)
+- Composer installation
 - Multiple Laravel site management
 - Git repository integration
 - Custom port configuration for sites
@@ -65,7 +67,7 @@ This will configure Nginx to listen on port 8080 instead of the default port 80.
 To set up a site from an existing Git repository:
 
 ```bash
-sudo ./setup-site.sh mysite example.local 80 https://github.com/username/laravel-project.git main
+sudo ./setup-site.sh mysite example.local 80 https://github.com/username/laravel-project.git main 8.1 yes
 ```
 
 Where:
@@ -74,6 +76,8 @@ Where:
 - `80` - The port number (use any available port)
 - `https://github.com/username/laravel-project.git` - Git repository URL
 - `main` - Branch name (optional, defaults to 'main')
+- `8.1` - PHP version (optional, defaults to '8.1')
+- `yes` - Enable auto-updates via cron (optional, defaults to 'no')
 
 ### Working with GitHub Repositories
 
@@ -87,6 +91,22 @@ For GitHub repositories, you have two options:
    ```
 
    Make sure your SSH keys are properly set up on the server with access to the repository.
+
+### Automatic Updates via Cron
+
+For Git-based projects, you can enable automatic updates to keep your site up-to-date with the latest changes from the repository:
+
+```bash
+sudo ./setup-site.sh mysite example.local 80 git@github.com:username/private-repo.git main 8.1 yes
+```
+
+When auto-update is enabled:
+- A cron job will be created to pull the latest changes every 6 hours
+- The update script will handle stashing local changes, pulling updates, running Composer and npm tasks, and running migrations
+- All update activities are logged to `/var/log/sitename-updates.log`
+- The update script is created at `/usr/local/bin/update-sitename.sh` and can be manually executed at any time
+
+This feature is especially useful for development environments that need to stay in sync with a shared repository.
 
 ## Managing Multiple Sites
 
@@ -107,7 +127,9 @@ vars:
       git_repo: git@github.com:username/site2.git
       git_branch: develop
       db_connection: pgsql
+      php_version: 8.2
       run_migrations: true
+      auto_update: yes
 ```
 
 Then run:

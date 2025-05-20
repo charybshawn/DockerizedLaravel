@@ -231,8 +231,12 @@
       no_log: true
       
     # Node.js Installation
-    - name: Install Node.js repository
-      shell: curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+    - name: Set Node.js version
+      set_fact:
+        node_version: "{{ node_version | default('18') }}"
+      
+    - name: Install Node.js repository 
+      shell: curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
       when: ansible_os_family == "Debian"
       
     - name: Install Node.js

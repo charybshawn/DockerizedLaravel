@@ -1,0 +1,135 @@
+#!/bin/bash
+# Auto-update script for Laravel site: {{ site_name }}
+# Created by Laravel Development Environment setup
+# Updates the site from Git repository: {{ git_repo }}
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[1;36m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+# Site directory
+SITE_DIR="/var/www/{{ site_name }}"
+LOG_FILE="/var/log/{{ site_name }}-updates.log"
+DATE=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Log function
+log() {
+  echo -e "$DATE - $1" >> "$LOG_FILE"
+  echo -e "$1"
+}
+
+# Check if the site directory exists
+if [ ! -d "$SITE_DIR" ]; then
+  log "${RED}Error: Site directory $SITE_DIR does not exist${NC}"
+  exit 1
+fi
+
+# Check if the directory is a Git repository
+if [ ! -d "$SITE_DIR/.git" ]; then
+  log "${RED}Error: $SITE_DIR is not a Git repository${NC}"
+  exit 1
+fi
+
+# Save current directory and switch to site directory
+CURRENT_DIR=$(pwd)
+cd "$SITE_DIR" || { log "${RED}Error: Could not change to directory $SITE_DIR${NC}"; exit 1; }
+
+log "${BLUE}Starting update of {{ site_name }} from {{ git_repo }}${NC}"
+
+# Fetch changes but don't apply them yet
+git fetch origin {{ git_branch | default('main') }} || { 
+  log "${RED}Error: Failed to fetch from Git repository${NC}"
+  cd "$CURRENT_DIR"
+  exit 1
+}
+
+# Check if there are changes to pull
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/{{ git_branch | default('main') }})
+
+if [ "$LOCAL" == "$REMOTE" ]; then
+  log "${GREEN}Site is already up to date${NC}"
+  cd "$CURRENT_DIR"
+  exit 0
+fi
+
+# Stash any local changes
+git stash || log "${YELLOW}Warning: Failed to stash local changes, continuing anyway${NC}"
+
+# Pull changes
+log "${BLUE}Pulling new changes...${NC}"
+if git pull origin {{ git_branch | default('main') }}; then
+  log "${GREEN}Successfully pulled latest changes${NC}"
+  
+  # Determine PHP version
+  PHP_VERSION=$(grep -r "fastcgi_pass" /etc/nginx/sites-available/{{ site_name }} | grep -o "php[0-9]\+\.[0-9]\+" | head -1 | sed 's/php//' || echo "{{ php_version | default('8.1') }}")
+  
+  # Run composer install if composer.json exists
+  if [ -f "composer.json" ]; then
+    log "${BLUE}Installing composer dependencies...${NC}"
+    composer install --no-interaction || log "${YELLOW}Warning: Composer install failed${NC}"
+  fi
+  
+  # Run npm install and build if package.json exists
+  if [ -f "package.json" ]; then
+    # Check Node.js compatibility
+    NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    NODE_REQUIRED=$(grep -o '"node":\\s*"[^"]*"' package.json | grep -o '[0-9]*' | head -1 || echo "")
+    
+    if [ -n "$NODE_REQUIRED" ] && [ "$NODE_VERSION" -lt "$NODE_REQUIRED" ]; then
+      log "${YELLOW}Warning: Current Node.js v$NODE_VERSION may be too old for this project (requires v$NODE_REQUIRED+)${NC}"
+      log "${YELLOW}Build steps might fail. Consider upgrading Node.js on this server.${NC}"
+    fi
+    
+    log "${BLUE}Installing npm dependencies...${NC}"
+    npm install || {
+      log "${YELLOW}Warning: NPM install failed, trying with --legacy-peer-deps${NC}"
+      npm install --legacy-peer-deps || log "${RED}Error: NPM install failed even with --legacy-peer-deps${NC}"
+    }
+    
+    # Check for build/dev script in package.json
+    if grep -q '"build"' package.json; then
+      log "${BLUE}Building assets...${NC}"
+      npm run build || {
+        log "${YELLOW}Warning: NPM build failed, trying with NODE_OPTIONS=--openssl-legacy-provider${NC}"
+        NODE_OPTIONS=--openssl-legacy-provider npm run build || log "${RED}Error: NPM build failed${NC}"
+      }
+    elif grep -q '"dev"' package.json; then
+      log "${BLUE}Building assets...${NC}"
+      npm run dev || {
+        log "${YELLOW}Warning: NPM dev failed, trying with NODE_OPTIONS=--openssl-legacy-provider${NC}"
+        NODE_OPTIONS=--openssl-legacy-provider npm run dev || log "${RED}Error: NPM dev failed${NC}"
+      }
+    fi
+  fi
+  
+  # Run migrations if .env exists
+  if [ -f ".env" ]; then
+    log "${BLUE}Running database migrations...${NC}"
+    php artisan migrate --force || log "${YELLOW}Warning: Migrations failed${NC}"
+  fi
+  
+  # Clear caches
+  log "${BLUE}Clearing caches...${NC}"
+  php artisan optimize:clear || log "${YELLOW}Warning: Cache clearing failed${NC}"
+  
+  # Set proper permissions
+  log "${BLUE}Setting proper permissions...${NC}"
+  chmod -R 775 storage bootstrap/cache
+  chown -R {{ site_user }}:www-data storage bootstrap/cache
+  
+  log "${GREEN}Update completed successfully!${NC}"
+else
+  log "${RED}Error: Failed to pull from Git repository${NC}"
+  # Try to recover by popping the stash
+  git stash pop
+  cd "$CURRENT_DIR"
+  exit 1
+fi
+
+# Return to original directory
+cd "$CURRENT_DIR"
+exit 0 

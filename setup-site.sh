@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to create a new Laravel site
-# Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch] [php_version]
+# Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch] [php_version] [auto_update]
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -18,7 +18,7 @@ fi
 # Get site name
 if [ -z "$1" ]; then
   echo -e "${RED}Error: Site name is required${NC}"
-  echo "Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch] [php_version]"
+  echo "Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch] [php_version] [auto_update]"
   exit 1
 fi
 
@@ -77,6 +77,12 @@ fi
 # Get Git repository (optional)
 GIT_REPO=${4:-""}
 
+# Prompt for auto-update if it's not explicitly passed as an argument
+if [ -n "$GIT_REPO" ] && [ "$AUTO_UPDATE" != "yes" ] && [ "$AUTO_UPDATE" != "no" ]; then
+  read -p "Do you want to setup automatic Git updates via cron? (yes/no) [no]: " AUTO_UPDATE_INPUT
+  AUTO_UPDATE=${AUTO_UPDATE_INPUT:-"no"}
+fi
+
 # Check if using HTTPS or HTTP for GitHub
 if [[ "$GIT_REPO" == *"github.com"* ]]; then
   echo -e "${YELLOW}Warning: Using GitHub repository URLs.${NC}"
@@ -107,6 +113,9 @@ GIT_BRANCH=${5:-"main"}
 
 # Get PHP version (default to 8.1)
 PHP_VERSION=${6:-"8.1"}
+
+# Set auto-update (default to no)
+AUTO_UPDATE=${7:-"no"}
 
 # List available PHP versions
 echo -e "${BLUE}Checking available PHP versions on this server...${NC}"
@@ -312,6 +321,7 @@ cat > /tmp/site_setup.yml << EOF
         seed_db: false
         skip_composer: ${SKIP_COMPOSER}
         force_ignore_php_version: ${FORCE_IGNORE_PHP_VERSION}
+        auto_update: ${AUTO_UPDATE}
         
   pre_tasks:
     - name: Set a flag that npm is installed
@@ -386,6 +396,7 @@ echo -e "${BLUE}Setting up Laravel site: ${SITE_NAME}${NC}"
 echo -e "${BLUE}Domain: ${DOMAIN}${NC}"
 echo -e "${BLUE}Port: ${PORT}${NC}"
 echo -e "${BLUE}PHP Version: ${PHP_VERSION}${NC}"
+echo -e "${BLUE}Auto-update: ${AUTO_UPDATE}${NC}"
 if [ -n "$GIT_REPO" ]; then
   echo -e "${BLUE}Git Repository: ${GIT_REPO} (branch: ${GIT_BRANCH})${NC}"
   if [ "$SKIP_COMPOSER" = true ]; then
@@ -393,6 +404,10 @@ if [ -n "$GIT_REPO" ]; then
   fi
 else
   echo -e "${BLUE}Creating new Laravel project${NC}"
+  if [ "$AUTO_UPDATE" = "yes" ]; then
+    echo -e "${YELLOW}Warning: Auto-update is enabled but no Git repository specified. Auto-update will be disabled.${NC}"
+    AUTO_UPDATE="no"
+  fi
 fi
 echo -e "${BLUE}Running Ansible playbook...${NC}"
 
@@ -473,6 +488,13 @@ if [ -n "$GIT_REPO" ]; then
   echo "🔄 Git Information:"
   echo "  - Repository: $GIT_REPO"
   echo "  - Branch: $GIT_BRANCH"
+  if [ "$AUTO_UPDATE" = "yes" ]; then
+    echo "  - Auto-update: Enabled (every 6 hours via cron)"
+    echo "  - Update script: /usr/local/bin/update-${SITE_NAME}.sh"
+    echo "  - Update logs: /var/log/${SITE_NAME}-updates.log"
+  else
+    echo "  - Auto-update: Disabled"
+  fi
   if [ "$SKIP_COMPOSER" = true ]; then
     echo "  - Note: Composer dependencies not installed. Run these commands manually:"
     echo "    cd /var/www/${SITE_NAME}"

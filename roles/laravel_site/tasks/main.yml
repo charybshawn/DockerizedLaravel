@@ -89,6 +89,34 @@
     msg: "WARNING: PHP {{ php_version | default('8.1') }} is not installed on this server. Composer installation may fail."
   when: not php_binary.stat.exists
 
+- name: Check Node.js version
+  shell: node -v
+  register: node_version_output
+  changed_when: false
+  ignore_errors: true
+
+- name: Extract Node.js version
+  set_fact:
+    current_node_version: "{{ node_version_output.stdout | regex_replace('v([0-9]+).*', '\\1') }}"
+  when: node_version_output.rc == 0
+
+- name: Check if package.json requires newer Node.js version
+  block:
+    - name: Read package.json engines requirement if exists
+      shell: grep -o '"node":\\s*"[^"]*"' /var/www/{{ site_name }}/package.json | grep -o '[0-9.><=~^]*' || echo ""
+      register: node_requirement
+      changed_when: false
+      failed_when: false
+      
+    - name: Display Node.js compatibility warning
+      debug:
+        msg: |
+          WARNING: Your current Node.js version is v{{ node_version_output.stdout }}.
+          This project may require a different version based on package.json.
+          Consider updating Node.js if you encounter build issues.
+      when: node_requirement.stdout != "" and node_requirement.stdout != "0" and current_node_version is defined
+  when: git_repo is defined and git_repo != "" and node_version_output.rc == 0
+
 - name: Install Composer dependencies
   shell: >
     cd /var/www/{{ site_name }} && 
@@ -171,3 +199,36 @@
   become_user: "{{ site_user }}"
   when: seed_db | default(false) | bool and db_configured | default(false) | bool
   ignore_errors: yes 
+
+# Auto-update setup
+- name: Setup auto-update if requested
+  block:
+    - name: Create update script
+      template:
+        src: "../templates/update-site.sh.j2"
+        dest: "/usr/local/bin/update-{{ site_name }}.sh"
+        owner: root
+        group: root
+        mode: '0755'
+      vars:
+        site_user: "{{ site_user }}"
+      when: git_repo is defined and git_repo != ""
+    
+    - name: Create cron job for auto-update
+      cron:
+        name: "Auto-update {{ site_name }} Laravel site"
+        minute: "0"
+        hour: "*/6"
+        job: "/usr/local/bin/update-{{ site_name }}.sh >> /var/log/{{ site_name }}-updates.log 2>&1"
+        user: "root"
+      when: git_repo is defined and git_repo != ""
+    
+    - name: Create log file for updates
+      file:
+        path: "/var/log/{{ site_name }}-updates.log"
+        state: touch
+        owner: "{{ site_user }}"
+        group: "www-data"
+        mode: '0644'
+      when: git_repo is defined and git_repo != ""
+  when: auto_update | default('no') | lower == 'yes' 
