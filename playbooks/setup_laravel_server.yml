@@ -391,13 +391,7 @@
     - name: Generate password hash for Adminer
       shell: openssl passwd -apr1 "{{ adminer_password_final }}"
       register: adminer_password_hash_result
-      when: adminer_enabled | bool
-      no_log: true
-      
-    - name: Set password hash for Adminer
-      set_fact:
-        adminer_password_hash: "{{ adminer_password_hash_result.stdout }}"
-      when: adminer_enabled | bool
+      when: adminer_enabled | bool and adminer_password_final != ""
       no_log: true
       
     - name: Install and configure Adminer
@@ -406,7 +400,7 @@
       vars:
         adminer_domain: "db.{{ ansible_hostname }}.local"
         adminer_user: "admin"
-        adminer_password_hash: "{{ adminer_password_hash }}"
+        adminer_password_hash: "{{ adminer_password_hash_result.stdout | default('') }}"
         php_version: "{{ default_php_version }}"
       when: adminer_enabled | bool
       

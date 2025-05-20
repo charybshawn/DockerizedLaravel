@@ -40,9 +40,14 @@
     dest: /etc/nginx/sites-enabled/adminer
     state: link
 
+- name: Generate password hash if not provided
+  shell: openssl passwd -apr1 "admin"
+  register: default_password_hash
+  when: adminer_password_hash is not defined or adminer_password_hash == ''
+
 - name: Create .htpasswd file for Adminer basic auth
   copy:
-    content: "{{ adminer_user }}:{{ adminer_password_hash }}"
+    content: "{{ adminer_user }}:{{ adminer_password_hash | default(default_password_hash.stdout) }}"
     dest: /etc/nginx/.htpasswd_adminer
     owner: www-data
     group: www-data
