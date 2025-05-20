@@ -69,6 +69,18 @@ if [ ! -f "$ACTUAL_HOME/.ssh/authorized_keys" ]; then
     chown $ACTUAL_USER:$ACTUAL_USER "$ACTUAL_HOME/.ssh/authorized_keys"
 fi
 
+# Ensure home directory permissions are correct
+echo -e "${BLUE}Checking home directory permissions...${NC}"
+chown $ACTUAL_USER:$ACTUAL_USER "$ACTUAL_HOME"
+chmod 750 "$ACTUAL_HOME"
+
+# Create ansible directory if it doesn't exist
+if [ ! -d "$ACTUAL_HOME/ansible" ]; then
+    echo -e "${BLUE}Creating ansible directory in home folder...${NC}"
+    mkdir -p "$ACTUAL_HOME/ansible"
+    chown $ACTUAL_USER:$ACTUAL_USER "$ACTUAL_HOME/ansible"
+fi
+
 # Display SSH public key
 echo -e "${BLUE}SSH key generated. Your public key is:${NC}"
 echo "--------------------------------------------------"
@@ -90,6 +102,31 @@ fi
 # Install required Python packages
 echo -e "${BLUE}Installing required Python packages...${NC}"
 pip3 install -r requirements.txt
+
+# Set up the webserver repository if we're not already in it
+if [ ! -f "$(pwd)/setup-laravel.sh" ] || [ ! -d "$(pwd)/.git" ]; then
+    echo -e "${BLUE}Setting up webserver repository...${NC}"
+    
+    # Create ansible directory if it doesn't exist
+    if [ ! -d "$ACTUAL_HOME/ansible" ]; then
+        mkdir -p "$ACTUAL_HOME/ansible"
+        chown $ACTUAL_USER:$ACTUAL_USER "$ACTUAL_HOME/ansible"
+    fi
+    
+    # Clone the repository if needed
+    if [ ! -d "$ACTUAL_HOME/ansible/webserver" ]; then
+        echo -e "${BLUE}Cloning webserver repository...${NC}"
+        sudo -u $ACTUAL_USER git clone https://github.com/charybshawn/webserver.git "$ACTUAL_HOME/ansible/webserver"
+    else
+        echo -e "${BLUE}Updating webserver repository...${NC}"
+        cd "$ACTUAL_HOME/ansible/webserver"
+        sudo -u $ACTUAL_USER git pull
+    fi
+    
+    # Switch to the repository directory
+    cd "$ACTUAL_HOME/ansible/webserver"
+    echo -e "${GREEN}Now working in the webserver repository directory${NC}"
+fi
 
 # Prompt for PHP versions to install
 read -p "Enter PHP versions to install (space-separated, e.g., '8.1 8.2 8.3'): " PHP_VERSIONS

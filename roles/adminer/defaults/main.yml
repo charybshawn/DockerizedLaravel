@@ -6,7 +6,7 @@ adminer_version: "4.8.1"
 
 # Domain for Adminer access
 adminer_domain: "db.{{ ansible_hostname }}.local"
-adminer_port: 80
+adminer_port: 9000
 
 # Authentication settings
 adminer_auth_enabled: true

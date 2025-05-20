@@ -424,15 +424,16 @@
         php_versions: "{{ php_version_list }}"
         default_php_version: "{{ default_php_version }}"
       
-    # Display Adminer info in summary
+    # Display Adminer info in summary if enabled
     - name: Include Adminer info in summary if enabled
       set_fact:
         adminer_info: |
           
           🗄️ Database Management:
-            - Adminer URL: http://db.{{ ansible_hostname }}.local/
+            - Adminer URL: http://db.{{ ansible_hostname }}.local:9000/
             - Username: admin
             - Password: {{ adminer_password_final }}
+            - Direct access: http://{{ server_ip.stdout.split()[0] }}:9000/
       when: adminer_enabled | bool
       no_log: true
       
