@@ -24,6 +24,42 @@ fi
 
 SITE_NAME=$1
 
+# Check if site directory already exists
+SITE_DIR="/var/www/${SITE_NAME}"
+if [ -d "$SITE_DIR" ]; then
+  echo -e "${YELLOW}Warning: Site directory already exists at ${SITE_DIR}${NC}"
+  read -p "Do you want to overwrite the existing site? This will delete all files in $SITE_DIR (y/n): " CONFIRM_OVERWRITE
+  
+  if [[ $CONFIRM_OVERWRITE != "y" && $CONFIRM_OVERWRITE != "Y" ]]; then
+    echo -e "${BLUE}Setup cancelled. Existing site was not modified.${NC}"
+    exit 0
+  fi
+  
+  echo -e "${YELLOW}Removing existing site directory...${NC}"
+  rm -rf "$SITE_DIR"
+  
+  # Also check if the database exists and prompt to drop it
+  if [ -x "$(command -v mysql)" ]; then
+    DB_EXISTS=$(mysql -e "SHOW DATABASES LIKE '${SITE_NAME}';" | grep "${SITE_NAME}" | wc -l)
+    if [ "$DB_EXISTS" -eq 1 ]; then
+      read -p "Database '${SITE_NAME}' also exists. Drop it? (y/n): " DROP_DB
+      if [[ $DROP_DB == "y" || $DROP_DB == "Y" ]]; then
+        echo -e "${YELLOW}Dropping database ${SITE_NAME}...${NC}"
+        mysql -e "DROP DATABASE ${SITE_NAME};"
+      fi
+    fi
+  fi
+  
+  # Check if Nginx config exists and remove it
+  if [ -f "/etc/nginx/sites-available/${SITE_NAME}" ]; then
+    echo -e "${YELLOW}Removing existing Nginx configuration...${NC}"
+    rm -f "/etc/nginx/sites-available/${SITE_NAME}"
+    if [ -L "/etc/nginx/sites-enabled/${SITE_NAME}" ]; then
+      rm -f "/etc/nginx/sites-enabled/${SITE_NAME}"
+    fi
+  fi
+fi
+
 # Get domain (default to sitename.local)
 if [ -z "$2" ]; then
   DOMAIN="${SITE_NAME}.local"
@@ -183,6 +219,9 @@ ansible-playbook /tmp/site_setup.yml || {
   rm /tmp/site_setup.yml
   exit 1
 }
+
+# Clean up
+rm /tmp/site_setup.yml
 
 echo -e "${GREEN}Site setup complete!${NC}"
 echo -e "${GREEN}Your Laravel site is available at:${NC}"
