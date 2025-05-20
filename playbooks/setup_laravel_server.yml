@@ -29,8 +29,14 @@
   vars:
     # Set a flag to determine if sample site should be created
     create_sample: "{{ create_sample_site | lower == 'yes' }}"
+    # Get current user for Laravel site creation
+    current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
       
   tasks:
+    - name: Display current user
+      debug:
+        msg: "Setting up Laravel environment for user: {{ current_user }}"
+        
     - name: Update package cache
       apt:
         update_cache: yes
@@ -200,13 +206,13 @@
           file:
             path: "/var/www/{{ sample_site_name }}"
             state: directory
-            owner: "{{ ansible_user }}"
+            owner: "{{ current_user }}"
             group: www-data
             mode: '0755'
           
         - name: Install Laravel using Composer
           become: yes
-          become_user: "{{ ansible_user }}"
+          become_user: "{{ current_user }}"
           shell: composer create-project laravel/laravel /var/www/{{ sample_site_name }} --no-interaction
           args:
             creates: "/var/www/{{ sample_site_name }}/artisan"
@@ -215,7 +221,7 @@
           file:
             path: "/var/www/{{ sample_site_name }}/{{ item }}"
             state: directory
-            owner: "{{ ansible_user }}"
+            owner: "{{ current_user }}"
             group: www-data
             mode: '0775'
             recurse: yes
