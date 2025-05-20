@@ -30,6 +30,16 @@
       prompt: "Create a sample Laravel site? (yes/no)"
       private: no
       default: "no"
+    
+    - name: install_adminer
+      prompt: "Install Adminer database manager? (yes/no)"
+      private: no
+      default: "yes"
+    
+    - name: adminer_password
+      prompt: "Adminer admin password (leave blank to use default)"
+      private: yes
+      default: ""
   
   vars:
     # Set a flag to determine if sample site should be created
@@ -41,6 +51,10 @@
     # Define sample site defaults
     sample_site_name: "laravel"
     sample_site_php_version: "{{ default_php_version }}"
+    # Set Adminer flags
+    install_adminer: "{{ install_adminer | default('yes') | lower }}"
+    adminer_enabled: "{{ install_adminer == 'yes' }}"
+    adminer_password_final: "{{ adminer_password | default('admin') }}"
       
   tasks:
     - name: Display current user
@@ -97,6 +111,7 @@
           - ca-certificates
           - gnupg
           - lsb-release
+          - cron
         state: present
       when: ansible_os_family == "Debian"
       
@@ -171,6 +186,14 @@
         name: nginx
         state: started
         enabled: yes
+        
+    # Ensure cron is running
+    - name: Start and enable cron service
+      service:
+        name: cron
+        state: started
+        enabled: yes
+      when: ansible_os_family == "Debian"
       
     # MySQL Installation
     - name: Install MySQL
@@ -364,6 +387,36 @@
       register: server_ip
       changed_when: false
       
+    # Install Adminer if requested
+    - name: Generate password hash for Adminer
+      shell: openssl passwd -apr1 "{{ adminer_password_final }}"
+      register: adminer_password_hash_result
+      when: adminer_enabled | bool
+      no_log: true
+      
+    - name: Set password hash for Adminer
+      set_fact:
+        adminer_password_hash: "{{ adminer_password_hash_result.stdout }}"
+      when: adminer_enabled | bool
+      no_log: true
+      
+    - name: Install and configure Adminer
+      include_role:
+        name: adminer
+      vars:
+        adminer_domain: "db.{{ ansible_hostname }}.local"
+        adminer_user: "admin"
+        adminer_password_hash: "{{ adminer_password_hash }}"
+        php_version: "{{ default_php_version }}"
+      when: adminer_enabled | bool
+      
+    - name: Add Adminer domain to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 db.{{ ansible_hostname }}.local"
+        state: present
+      when: adminer_enabled | bool
+      
     # Set up server summary page
     - name: Set up server summary page
       template:
@@ -377,8 +430,25 @@
         php_versions: "{{ php_version_list }}"
         default_php_version: "{{ default_php_version }}"
       
+    # Display Adminer info in summary
+    - name: Include Adminer info in summary if enabled
+      set_fact:
+        adminer_info: |
+          
+          🗄️ Database Management:
+            - Adminer URL: http://db.{{ ansible_hostname }}.local/
+            - Username: admin
+            - Password: {{ adminer_password_final }}
+      when: adminer_enabled | bool
+      no_log: true
+      
+    - name: Include empty Adminer info if disabled
+      set_fact:
+        adminer_info: ""
+      when: not adminer_enabled | bool
+      
     # Display summary
-    - name: Display environment summary
+    - name: Display environment summary with Adminer
       debug:
         msg: |
           
@@ -397,11 +467,7 @@
             - Web Port: 80 (HTTP)
             - MySQL Port: 3306
             - PostgreSQL Port: 5432
-          
-          🐘 PHP Information:
-            - Installed PHP versions: {{ php_version_list | join(', ') }}
-            - Default PHP version: {{ default_php_version }}
-          
+          {{ adminer_info }}
           {% if create_sample %}
           🚀 Sample Laravel Site:
             - Site: {{ sample_site_name }}

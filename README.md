@@ -12,6 +12,7 @@ This is an Ansible-based Laravel development environment setup tool. It automate
 - Git repository integration
 - Custom port configuration for sites
 - Database setup and configuration
+- Adminer database management web interface
 - Easy-to-use shell scripts for common tasks
 
 ## Prerequisites
@@ -162,4 +163,37 @@ Common issues:
 2. **Domain not accessible**: Add the domain to your local hosts file
 3. **Database connection issues**: Check your .env file configuration
 4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service
-5. **Git authentication failures**: For private GitHub repositories, use SSH URLs (git@github.com:username/repo.git) instead of HTTPS URLs 
+5. **Git authentication failures**: For private GitHub repositories, use SSH URLs (git@github.com:username/repo.git) instead of HTTPS URLs
+
+## Database Management
+
+The environment comes with [Adminer](https://www.adminer.org/), a lightweight database management tool that supports both MySQL and PostgreSQL.
+
+### Accessing Adminer
+
+Once your Laravel environment is set up, you can access Adminer at:
+
+```
+http://db.hostname.local/
+```
+
+(where hostname is your server's hostname)
+
+Default credentials:
+- Username: admin
+- Password: admin (or the one you provided during setup)
+
+With Adminer you can:
+- Create, modify, and delete databases and tables
+- Run SQL queries
+- Import and export data
+- Manage users and permissions
+- View database structure
+
+### Customizing Adminer
+
+You can customize Adminer by modifying the settings in `playbooks/setup_laravel_server.yml`. Options include:
+- Changing the authentication credentials
+- Restricting access by IP address
+- Enabling/disabling specific features
+- Changing the theme 

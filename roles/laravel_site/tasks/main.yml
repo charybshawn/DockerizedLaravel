@@ -203,6 +203,25 @@
 # Auto-update setup
 - name: Setup auto-update if requested
   block:
+    - name: Check if cron is installed
+      command: which cron
+      register: cron_check
+      changed_when: false
+      failed_when: false
+      
+    - name: Install cron if not present
+      apt:
+        name: cron
+        state: present
+      when: cron_check.rc != 0
+      
+    - name: Ensure cron service is running
+      service:
+        name: cron
+        state: started
+        enabled: yes
+      when: cron_check.rc == 0 or ansible_os_family == "Debian"
+      
     - name: Create update script
       template:
         src: "../templates/update-site.sh.j2"

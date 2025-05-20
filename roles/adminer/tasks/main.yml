@@ -1,0 +1,55 @@
+---
+# Tasks for installing and configuring Adminer
+
+- name: Create Adminer directory
+  file:
+    path: /var/www/adminer
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Download latest Adminer
+  get_url:
+    url: https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1.php
+    dest: /var/www/adminer/index.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Create Adminer configuration file
+  template:
+    src: adminer.php.j2
+    dest: /var/www/adminer/adminer.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+  when: adminer_custom_config is defined and adminer_custom_config
+
+- name: Create Nginx server block for Adminer
+  template:
+    src: adminer_nginx.j2
+    dest: /etc/nginx/sites-available/adminer
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable Nginx server block for Adminer
+  file:
+    src: /etc/nginx/sites-available/adminer
+    dest: /etc/nginx/sites-enabled/adminer
+    state: link
+
+- name: Create .htpasswd file for Adminer basic auth
+  copy:
+    content: "{{ adminer_user }}:{{ adminer_password_hash }}"
+    dest: /etc/nginx/.htpasswd_adminer
+    owner: www-data
+    group: www-data
+    mode: '0640'
+  when: adminer_auth_enabled | default(true) | bool
+
+- name: Restart Nginx
+  service:
+    name: nginx
+    state: restarted 

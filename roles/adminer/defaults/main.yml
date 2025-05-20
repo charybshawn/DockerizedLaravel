@@ -1,0 +1,24 @@
+---
+# Default variables for Adminer role
+
+# Adminer version
+adminer_version: "4.8.1"
+
+# Domain for Adminer access
+adminer_domain: "db.{{ ansible_hostname }}.local"
+adminer_port: 80
+
+# Authentication settings
+adminer_auth_enabled: true
+adminer_user: "dbadmin"
+# Default password hash for "admin" - should be changed
+adminer_password_hash: "$apr1$qYfLC3UK$NyQtgMQKUbwzKqMvnP8f31"
+
+# Custom configuration
+adminer_custom_config: false
+
+# Security settings
+adminer_allowed_ips: []  # Empty means allow all
+
+# Appearance
+adminer_theme: "default"  # Options: default, flat, material, etc. 

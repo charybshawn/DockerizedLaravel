@@ -516,4 +516,15 @@ fi
 echo "===================================================="
 echo "To access your site, add this entry to your local machine's hosts file:"
 echo "${PUBLIC_IP} ${DOMAIN}"
-echo "" 
+echo ""
+
+# Check if Adminer is installed
+if [ -f "/etc/nginx/sites-available/adminer" ]; then
+  ADMINER_DOMAIN=$(grep -oP 'server_name \K.*?;' /etc/nginx/sites-available/adminer | tr -d ' ;')
+  if [ -n "$ADMINER_DOMAIN" ]; then
+    echo -e "${GREEN}📊 Database Management:${NC}"
+    echo "  - Adminer is available at: http://${ADMINER_DOMAIN}/"
+    echo "  - You can use it to manage your ${SITE_NAME} database"
+    echo ""
+  fi
+fi 

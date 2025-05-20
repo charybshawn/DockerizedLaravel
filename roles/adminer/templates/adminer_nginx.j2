@@ -1,0 +1,52 @@
+server {
+    listen {{ adminer_port | default('80') }};
+    server_name {{ adminer_domain }};
+    root /var/www/adminer;
+
+    index index.php;
+
+    charset utf-8;
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+        {% if adminer_auth_enabled | default(true) | bool %}
+        auth_basic "Adminer Login";
+        auth_basic_user_file /etc/nginx/.htpasswd_adminer;
+        {% endif %}
+        
+        {% if adminer_allowed_ips | length > 0 %}
+        # IP restrictions
+        allow 127.0.0.1;
+        {% for ip in adminer_allowed_ips %}
+        allow {{ ip }};
+        {% endfor %}
+        deny all;
+        {% endif %}
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    error_page 404 /index.php;
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php{{ php_version | default('8.1') }}-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_param PHP_VALUE "upload_max_filesize=64M \n post_max_size=64M";
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+    
+    # Custom log files for Adminer
+    access_log /var/log/nginx/adminer_access.log;
+    error_log /var/log/nginx/adminer_error.log;
+} 
