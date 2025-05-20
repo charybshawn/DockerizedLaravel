@@ -15,6 +15,16 @@
     - name: postgres_password
       prompt: "PostgreSQL postgres user password"
       private: yes
+    
+    - name: php_versions
+      prompt: "PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
+      private: no
+      default: "8.1"
+      
+    - name: default_php_version
+      prompt: "Default PHP version to use"
+      private: no
+      default: "8.1"
       
     - name: create_sample_site
       prompt: "Create a sample Laravel site? (yes/no)"
@@ -25,12 +35,19 @@
       prompt: "Sample site name (URL will be this.local)"
       private: no
       default: "laravel"
+      
+    - name: sample_site_php_version
+      prompt: "PHP version for sample site"
+      private: no
+      default: "{{ default_php_version }}"
   
   vars:
     # Set a flag to determine if sample site should be created
     create_sample: "{{ create_sample_site | lower == 'yes' }}"
     # Get current user for Laravel site creation
     current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
+    # Parse PHP versions
+    php_version_list: "{{ php_versions.split() }}"
       
   tasks:
     - name: Display current user
@@ -69,28 +86,58 @@
         repo: ppa:ondrej/php
         state: present
       when: ansible_distribution == "Ubuntu"
+    
+    - name: Display PHP versions being installed
+      debug:
+        msg: "Installing PHP versions: {{ php_version_list | join(', ') }}"
       
-    - name: Install PHP and extensions
-      apt:
-        name:
-          - php8.1
-          - php8.1-fpm
-          - php8.1-cli
-          - php8.1-common
-          - php8.1-mysql
-          - php8.1-pgsql
-          - php8.1-mbstring
-          - php8.1-xml
-          - php8.1-curl
-          - php8.1-zip
-          - php8.1-gd
-          - php8.1-intl
-          - php8.1-bcmath
-          - php8.1-soap
-          - php8.1-xdebug
-          - php8.1-redis
-        state: present
-      when: ansible_os_family == "Debian"
+    - name: Install all requested PHP versions
+      block:
+        - name: Install PHP and extensions for each version
+          apt:
+            name:
+              - php{{ php_version }}
+              - php{{ php_version }}-fpm
+              - php{{ php_version }}-cli
+              - php{{ php_version }}-common
+              - php{{ php_version }}-mysql
+              - php{{ php_version }}-pgsql
+              - php{{ php_version }}-mbstring
+              - php{{ php_version }}-xml
+              - php{{ php_version }}-curl
+              - php{{ php_version }}-zip
+              - php{{ php_version }}-gd
+              - php{{ php_version }}-intl
+              - php{{ php_version }}-bcmath
+              - php{{ php_version }}-soap
+              - php{{ php_version }}-xdebug
+              - php{{ php_version }}-redis
+            state: present
+          loop: "{{ php_version_list }}"
+          loop_control:
+            loop_var: php_version
+          when: ansible_os_family == "Debian"
+          
+        - name: Set default PHP version alternative priority
+          shell: update-alternatives --set php /usr/bin/php{{ default_php_version }}
+          ignore_errors: yes
+          
+        - name: Configure PHP-FPM for better performance for each version
+          lineinfile:
+            path: /etc/php/{{ php_version }}/fpm/pool.d/www.conf
+            regexp: '^;?{{ item.1.key }} ='
+            line: '{{ item.1.key }} = {{ item.1.value }}'
+          loop: "{{ php_version_list | product([
+              { 'key': 'pm.max_children', 'value': '50' },
+              { 'key': 'pm.start_servers', 'value': '5' },
+              { 'key': 'pm.min_spare_servers', 'value': '5' },
+              { 'key': 'pm.max_spare_servers', 'value': '35' }
+            ]) | list }}"
+          loop_control:
+            loop_var: item
+          notify: "restart php{{ item.0 }}-fpm"
+          
+      when: php_version_list | length > 0
       
     # Nginx Installation
     - name: Install Nginx
@@ -239,6 +286,7 @@
           vars:
             server_name: "{{ sample_site_name }}.local"
             root_directory: "/var/www/{{ sample_site_name }}/public"
+            php_version: "{{ sample_site_php_version }}"
           
         - name: Enable Nginx server block
           file:
@@ -259,30 +307,6 @@
             
       when: create_sample
         
-    # Final configuration
-    - name: Configure PHP-FPM for better performance
-      lineinfile:
-        path: /etc/php/8.1/fpm/pool.d/www.conf
-        regexp: '^;?{{ item.key }} ='
-        line: '{{ item.key }} = {{ item.value }}'
-      loop:
-        - { key: 'pm.max_children', value: '50' }
-        - { key: 'pm.start_servers', value: '5' }
-        - { key: 'pm.min_spare_servers', value: '5' }
-        - { key: 'pm.max_spare_servers', value: '35' }
-      notify: restart php-fpm
-    
-    - name: Set up server summary page
-      template:
-        src: ../templates/server_info.j2
-        dest: /var/www/html/index.html
-        owner: root
-        group: root
-        mode: '0644'
-      vars:
-        server_name: "{{ ansible_hostname }}"
-        php_version: "8.1"
-        
     # Get service status for summary
     - name: Get Nginx status
       command: systemctl is-active nginx
@@ -301,17 +325,33 @@
       register: postgresql_status
       changed_when: false
       failed_when: false
-      
-    - name: Get PHP-FPM status
-      command: systemctl is-active php8.1-fpm
-      register: php_status
+    
+    - name: Get PHP-FPM status for each version
+      command: "systemctl is-active php{{ php_version }}-fpm"
+      register: php_status_results
       changed_when: false
       failed_when: false
+      loop: "{{ php_version_list }}"
+      loop_control:
+        loop_var: php_version
       
     - name: Get server IP
       command: hostname -I
       register: server_ip
       changed_when: false
+      
+    # Set up server summary page
+    - name: Set up server summary page
+      template:
+        src: ../templates/server_info.j2
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        server_name: "{{ ansible_hostname }}"
+        php_versions: "{{ php_version_list }}"
+        default_php_version: "{{ default_php_version }}"
       
     # Display summary
     - name: Display environment summary
@@ -324,7 +364,9 @@
             - Nginx: {{ nginx_status.stdout }}
             - MySQL: {{ mysql_status.stdout }}
             - PostgreSQL: {{ postgresql_status.stdout }}
-            - PHP-FPM: {{ php_status.stdout }}
+            {% for result in php_status_results.results %}
+            - PHP{{ php_version_list[loop.index0] }}-FPM: {{ result.stdout }}
+            {% endfor %}
           
           🌐 Network Information:
             - Server IP: {{ server_ip.stdout.split()[0] }}
@@ -332,12 +374,17 @@
             - MySQL Port: 3306
             - PostgreSQL Port: 5432
           
+          🐘 PHP Information:
+            - Installed PHP versions: {{ php_version_list | join(', ') }}
+            - Default PHP version: {{ default_php_version }}
+          
           {% if create_sample %}
           🚀 Sample Laravel Site:
             - Site: {{ sample_site_name }}
             - URL: http://{{ server_ip.stdout.split()[0] }}/
             - URL: http://{{ sample_site_name }}.local/ (add to your hosts file)
             - Path: /var/www/{{ sample_site_name }}/
+            - PHP Version: {{ sample_site_php_version }}
           {% else %}
           ℹ️ No sample site was created during setup.
             - Run './setup-site.sh' to create a new Laravel site
@@ -352,8 +399,18 @@
       service:
         name: nginx
         state: restarted
-        
-    - name: restart php-fpm
+    
+    - name: restart php8.1-fpm
       service:
         name: php8.1-fpm
+        state: restarted
+        
+    - name: restart php8.2-fpm
+      service:
+        name: php8.2-fpm
+        state: restarted
+        
+    - name: restart php8.3-fpm
+      service:
+        name: php8.3-fpm
         state: restarted 

@@ -58,6 +58,10 @@
             font-size: 0.9em;
             color: #718096;
         }
+        .highlight {
+            color: #38a169;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -69,8 +73,14 @@
             <ul>
                 <li><strong>Hostname:</strong> {{ ansible_hostname }}</li>
                 <li><strong>OS:</strong> {{ ansible_distribution }} {{ ansible_distribution_version }}</li>
-                <li><strong>PHP Version:</strong> {{ php_version }}</li>
-                <li><strong>Nginx Version:</strong> Running</li>
+                <li><strong>Available PHP Versions:</strong>
+                    <ul>
+                        {% for version in php_versions %}
+                        <li>PHP {{ version }}{% if version == default_php_version %} <span class="highlight">(default)</span>{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                <li><strong>Nginx:</strong> Running</li>
                 <li><strong>MySQL:</strong> Running</li>
                 <li><strong>PostgreSQL:</strong> Running</li>
                 <li><strong>Node.js:</strong> Installed</li>
@@ -80,7 +90,13 @@
         <div class="card">
             <h2>Development Tools</h2>
             <ul>
-                <li><strong>PHP-FPM:</strong> Running on unix:/var/run/php/php{{ php_version }}-fpm.sock</li>
+                <li><strong>PHP-FPM:</strong>
+                    <ul>
+                        {% for version in php_versions %}
+                        <li>PHP {{ version }} - unix:/var/run/php/php{{ version }}-fpm.sock</li>
+                        {% endfor %}
+                    </ul>
+                </li>
                 <li><strong>Composer:</strong> Installed globally</li>
                 <li><strong>NPM:</strong> Installed</li>
                 <li><strong>Yarn:</strong> Installed</li>
@@ -93,12 +109,14 @@
             <p>This server is configured for Laravel development with the following stack:</p>
             <ul>
                 <li>Nginx as web server</li>
-                <li>PHP {{ php_version }} with necessary extensions</li>
+                <li>Multiple PHP versions: {{ php_versions|join(', ') }}</li>
                 <li>MySQL and PostgreSQL databases</li>
                 <li>Node.js for asset compilation</li>
             </ul>
             <p>To create a new Laravel project, use:</p>
             <code>composer create-project laravel/laravel project-name</code>
+            <p>To create a Laravel site with specific PHP version, use our setup script:</p>
+            <code>sudo ./setup-site.sh sitename domain port git_repo branch php_version</code>
         </div>
     </div>
 
@@ -113,6 +131,7 @@
             <li><strong>Watch Assets:</strong> <code>npm run watch</code></li>
             <li><strong>Create Controller:</strong> <code>php artisan make:controller NameController</code></li>
             <li><strong>Create Model:</strong> <code>php artisan make:model Name</code></li>
+            <li><strong>Switch PHP Version:</strong> <code>sudo update-alternatives --config php</code></li>
         </ul>
     </div>
 

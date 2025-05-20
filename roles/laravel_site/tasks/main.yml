@@ -79,17 +79,46 @@
     - storage
     - bootstrap/cache
 
+- name: Check if PHP version is installed
+  stat:
+    path: "/usr/bin/php{{ php_version | default('8.1') }}"
+  register: php_binary
+
+- name: Display warning if PHP version is not installed
+  debug:
+    msg: "WARNING: PHP {{ php_version | default('8.1') }} is not installed on this server. Composer installation may fail."
+  when: not php_binary.stat.exists
+
 - name: Install Composer dependencies
-  shell: cd /var/www/{{ site_name }} && composer install --no-interaction
+  shell: >
+    cd /var/www/{{ site_name }} && 
+    {% if force_ignore_php_version | default(false) | bool %}
+    composer install --no-interaction --ignore-platform-reqs
+    {% else %}
+    composer install --no-interaction
+    {% endif %}
   become: yes
   become_user: "{{ site_user }}"
   when: install_dependencies | default(true) | bool
+  register: composer_result
+  ignore_errors: yes
+  
+- name: Display composer error information if failed
+  debug:
+    msg: |
+      Composer installation failed. This might be due to PHP version incompatibility.
+      If this is a git project, try running the setup script again and select the option to skip composer install.
+      After setup completes, you can try running 'composer install --ignore-platform-reqs' manually.
+      
+      Error details: {{ composer_result.stderr }}
+  when: install_dependencies | default(true) | bool and composer_result.failed is defined and composer_result.failed
 
 - name: Run key generation
   shell: cd /var/www/{{ site_name }} && php artisan key:generate --force
   become: yes
   become_user: "{{ site_user }}"
   when: generate_key | default(true) | bool
+  ignore_errors: yes
 
 - name: Install NPM dependencies
   shell: cd /var/www/{{ site_name }} && npm install
@@ -114,6 +143,7 @@
     server_name: "{{ site_domain | default(site_name + '.local') }}"
     root_directory: "/var/www/{{ site_name }}/public"
     port: "{{ site_port | default('80') }}"
+    php_version: "{{ php_version | default('8.1') }}"
 
 - name: Enable Nginx server block
   file:
@@ -133,9 +163,11 @@
   become: yes
   become_user: "{{ site_user }}"
   when: run_migrations | default(false) | bool and db_configured | default(false) | bool
+  ignore_errors: yes
 
 - name: Seed database if requested
   shell: cd /var/www/{{ site_name }} && php artisan db:seed --force
   become: yes
   become_user: "{{ site_user }}"
-  when: seed_db | default(false) | bool and db_configured | default(false) | bool 
+  when: seed_db | default(false) | bool and db_configured | default(false) | bool
+  ignore_errors: yes 
