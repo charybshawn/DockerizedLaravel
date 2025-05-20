@@ -25,7 +25,10 @@
       prompt: "Sample site name (URL will be this.local)"
       private: no
       default: "laravel"
-      when: create_sample_site == "yes"
+  
+  vars:
+    # Set a flag to determine if sample site should be created
+    create_sample: "{{ create_sample_site | lower == 'yes' }}"
       
   tasks:
     - name: Update package cache
@@ -250,7 +253,7 @@
             name: nginx
             state: restarted
             
-      when: create_sample_site == "yes"
+      when: create_sample
         
     # Final configuration
     - name: Configure PHP-FPM for better performance

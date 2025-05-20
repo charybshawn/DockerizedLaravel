@@ -68,17 +68,24 @@ echo "--------------------------------------------------"
 cat "$ACTUAL_HOME/.ssh/id_rsa.pub"
 echo "--------------------------------------------------"
 
-# Check for ansible
-if ! command_exists ansible; then
-    echo "Ansible not found. Installing..."
-    apt update
-    apt install -y ansible python3-pip
+# Install Python and Ansible dependencies
+echo "Installing Python and Ansible dependencies..."
+apt update
+apt install -y ansible python3 python3-pip
+
+# Check if pip3 is now available
+if ! command_exists pip3; then
+    echo "Error: pip3 installation failed. Please install manually with:"
+    echo "apt-get install python3-pip"
+    exit 1
 fi
 
 # Install required Python packages
+echo "Installing required Python packages..."
 pip3 install -r requirements.txt
 
 # Run the Ansible playbook
+echo "Running Ansible playbook..."
 ansible-playbook main.yml -i inventory/hosts.yml
 
 echo ""
