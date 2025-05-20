@@ -3,6 +3,10 @@
 
 - name: Setup Laravel development environment
   import_playbook: playbooks/setup_laravel_server.yml
+  vars:
+    # These will be overridden by --extra-vars if provided
+    php_versions: "{{ php_versions | default('8.1') }}" 
+    default_php_version: "{{ default_php_version | default('8.1') }}"
 
 - name: Setup multiple Laravel sites (optional)
   import_playbook: playbooks/manage_laravel_sites.yml

@@ -19,12 +19,12 @@
     - name: php_versions
       prompt: "PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
       private: no
-      default: "8.1"
+      default: "{{ php_versions | default('8.1') }}"
       
     - name: default_php_version
       prompt: "Default PHP version to use"
       private: no
-      default: "8.1"
+      default: "{{ default_php_version | default('8.1') }}"
       
     - name: create_sample_site
       prompt: "Create a sample Laravel site? (yes/no)"

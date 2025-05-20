@@ -91,15 +91,32 @@ fi
 echo -e "${BLUE}Installing required Python packages...${NC}"
 pip3 install -r requirements.txt
 
+# Prompt for PHP versions to install
+read -p "Enter PHP versions to install (space-separated, e.g., '8.1 8.2 8.3'): " PHP_VERSIONS
+PHP_VERSIONS=${PHP_VERSIONS:-"8.1"}
+
+read -p "Enter default PHP version: " DEFAULT_PHP_VERSION
+DEFAULT_PHP_VERSION=${DEFAULT_PHP_VERSION:-"8.1"}
+
+# Export variables so they can be used by Ansible
+export ANSIBLE_EXTRA_VARS="php_versions='$PHP_VERSIONS' default_php_version='$DEFAULT_PHP_VERSION'"
+
 # Run the Ansible playbook
 echo -e "${BLUE}Running Ansible playbook...${NC}"
-ansible-playbook main.yml -i inventory/hosts.yml
+ansible-playbook main.yml -i inventory/hosts.yml --extra-vars "$ANSIBLE_EXTRA_VARS"
 
 # Get services status
 NGINX_STATUS=$(systemctl is-active nginx)
 MYSQL_STATUS=$(systemctl is-active mysql)
 POSTGRESQL_STATUS=$(systemctl is-active postgresql)
-PHP_STATUS=$(systemctl is-active php8.1-fpm)
+
+# Get PHP versions from directories
+echo -e "${BLUE}Checking installed PHP versions...${NC}"
+PHP_VERSIONS_INSTALLED=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$' | sort -V)
+
+if [ -z "$PHP_VERSIONS_INSTALLED" ]; then
+    PHP_VERSIONS_INSTALLED="8.1"  # Default if none found
+fi
 
 # Get public IP
 PUBLIC_IP=$(hostname -I | awk '{print $1}')
@@ -120,7 +137,13 @@ echo -e "${BLUE}🔧 Services Status:${NC}"
 echo "  - Nginx: ${NGINX_STATUS}"
 echo "  - MySQL: ${MYSQL_STATUS}"
 echo "  - PostgreSQL: ${POSTGRESQL_STATUS}"
-echo "  - PHP-FPM: ${PHP_STATUS}"
+
+# Check each PHP-FPM version status
+for VERSION in $PHP_VERSIONS_INSTALLED; do
+    PHP_SERVICE_STATUS=$(systemctl is-active php$VERSION-fpm 2>/dev/null || echo "not installed")
+    echo "  - PHP $VERSION-FPM: ${PHP_SERVICE_STATUS}"
+done
+
 echo ""
 echo -e "${BLUE}🌐 Network Information:${NC}"
 echo "  - Server IP: ${PUBLIC_IP}"
@@ -130,12 +153,19 @@ echo "  - MySQL Port: 3306"
 echo "  - PostgreSQL Port: 5432"
 echo ""
 
+echo -e "${BLUE}🐘 PHP Information:${NC}"
+echo "  - Installed PHP versions: ${PHP_VERSIONS_INSTALLED}"
+echo "  - Default PHP version: ${DEFAULT_PHP_VERSION}"
+echo ""
+
 if [ -n "$SAMPLE_SITE" ]; then
+    SAMPLE_SITE_PHP=$(grep -r "fastcgi_pass" /etc/nginx/sites-available/$SAMPLE_SITE | grep -o "php[0-9]\+\.[0-9]\+" | head -1 | sed 's/php//')
     echo -e "${BLUE}🚀 Sample Laravel Site:${NC}"
     echo "  - Site: $SAMPLE_SITE"
     echo "  - URL: http://${PUBLIC_IP}/"
     echo "  - URL: http://${SAMPLE_SITE}.local/ (add to your hosts file)"
     echo "  - Path: /var/www/${SAMPLE_SITE}/"
+    echo "  - PHP Version: ${SAMPLE_SITE_PHP:-"unknown"}"
 else
     echo -e "${YELLOW}ℹ️ No sample site was created.${NC}"
     echo "  - Run './setup-site.sh' to create a new Laravel site"

@@ -433,6 +433,9 @@ NGINX_STATUS=$(systemctl is-active nginx 2>/dev/null || echo "unknown")
 DB_STATUS=$(systemctl is-active $([[ "$DB_TYPE" == "mysql" ]] && echo "mysql" || echo "postgresql") 2>/dev/null || echo "unknown")
 PHP_STATUS=$(systemctl is-active php${PHP_VERSION}-fpm 2>/dev/null || echo "unknown")
 
+# Get PHP version info
+PHP_VERSION_FULL=$(php${PHP_VERSION} -r "echo PHP_VERSION;" 2>/dev/null || echo "unknown")
+
 # Get public IP
 PUBLIC_IP=$(hostname -I | awk '{print $1}')
 
@@ -443,6 +446,7 @@ echo "🔧 Services Status:"
 echo "  - Nginx: ${NGINX_STATUS}"
 echo "  - Database ($DB_TYPE): ${DB_STATUS}"
 echo "  - PHP-FPM (${PHP_VERSION}): ${PHP_STATUS}"
+echo "  - PHP Version: ${PHP_VERSION} (${PHP_VERSION_FULL})"
 echo ""
 echo "🌐 Site Information:"
 echo "  - Site Name: $SITE_NAME"
