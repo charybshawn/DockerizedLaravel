@@ -1,105 +1,114 @@
-# Laravel Development Environment Setup
+# Laravel Development Environment
 
-This repository contains a simple, self-contained Ansible setup for configuring Laravel development environments directly on your server or VM.
+This is an Ansible-based Laravel development environment setup tool. It automates the process of setting up a LEMP stack (Linux, Nginx, MySQL, PostgreSQL, PHP) optimized for Laravel development.
 
 ## Features
 
-- **Runs locally**: Just clone and execute on the machine you want to configure
-- **Complete LEMP stack**: Installs Nginx, MySQL, PostgreSQL, PHP with all Laravel requirements
-- **Node.js & Composer**: Sets up the complete JavaScript and PHP dependency tools
-- **Multi-site support**: Easily create and manage multiple Laravel sites on a single server
-- **SSH setup**: Automatically configures SSH for the current user
-- **Detailed summaries**: Provides comprehensive information about services, sites, and configuration
+- Complete LEMP stack installation (Linux, Nginx, MySQL, PostgreSQL, PHP 8.1)
+- Node.js and Composer installation
+- Multiple Laravel site management
+- Git repository integration
+- Database setup and configuration
+- Easy-to-use shell scripts for common tasks
 
-## Quick Setup
+## Prerequisites
 
-1. Clone this repository to your server:
-   ```
-   git clone <repository-url>
-   cd laravel-ansible-setup
+- Ubuntu/Debian-based Linux system
+- sudo access
+- Basic knowledge of Linux command line
+
+## Installation
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/laravel-dev-environment.git
+   cd laravel-dev-environment
    ```
 
 2. Run the setup script:
-   ```
+   ```bash
    sudo ./setup-laravel.sh
    ```
 
-   This script will:
-   - Install Ansible if needed
-   - Install required dependencies
-   - Set up the LEMP stack with PHP 8.1, MySQL, PostgreSQL
-   - Install Node.js, NPM, Yarn, and Composer
-   - Configure PHP for optimal Laravel performance
-   - Set up SSH for the current user
-   - Display a detailed summary of services and configuration
+This will install all necessary dependencies and configure the server for Laravel development.
 
-3. Create Laravel sites using the site setup script:
-   ```
-   sudo ./setup-site.sh
-   ```
+## Setting Up a Laravel Site
 
-   This interactive script will prompt you for:
-   - Site name and domain
-   - Git repository (optional)
-   - Database configuration
-   - Additional options like migrations and asset compilation
-   
-   After setup, a comprehensive summary will show:
-   - Service status (Nginx, database, PHP)
-   - Site URLs and paths
-   - Database information
-   - Environment details
+### Using the setup-site.sh Script
 
-## Manual Configuration
+The simplest way to create a new Laravel site is using the provided `setup-site.sh` script:
 
-If you prefer to configure things manually, you can use the Ansible playbooks directly:
-
-### Set up the server environment:
-```
-sudo ansible-playbook playbooks/setup_laravel_server.yml -i inventory/hosts.yml
+```bash
+sudo ./setup-site.sh mysite example.local
 ```
 
-### Add Laravel sites:
-Edit `playbooks/manage_laravel_sites.yml` to configure your sites, then run:
-```
-sudo ansible-playbook playbooks/manage_laravel_sites.yml -i inventory/hosts.yml
-```
+This will:
+- Create a new site directory at `/var/www/mysite`
+- Install a fresh Laravel project
+- Create a MySQL database named `mysite`
+- Configure Nginx with the domain `example.local`
+- Set up proper permissions
 
-## Site Configuration
+### Cloning an Existing Laravel Project
 
-When setting up a Laravel site, you can configure multiple options:
+To set up a site from an existing Git repository:
 
-```yaml
-laravel_sites:
-  - name: myproject                        # Site name
-    domain: myproject.local                # Domain name
-    git_repo: https://github.com/user/repo # Optional Git repository
-    git_branch: main                       # Git branch
-    db_connection: mysql                   # Database type (mysql or pgsql)
-    db_database: myproject                 # Database name
-    db_username: root                      # Database username
-    db_password: password                  # Database password
-    run_migrations: true                   # Run migrations after setup
-    seed_db: false                         # Seed the database
-    install_npm_dependencies: true         # Install npm dependencies
-    compile_assets: true                   # Compile assets
-    npm_command: dev                       # npm command to run
+```bash
+sudo ./setup-site.sh mysite example.local https://github.com/username/laravel-project.git main
 ```
 
-## System Status and Information
+Where:
+- `mysite` - The site name (used for directory and default database name)
+- `example.local` - The domain name
+- `https://github.com/username/laravel-project.git` - Git repository URL
+- `main` - Branch name (optional, defaults to 'main')
 
-After installation and site creation, detailed summaries are displayed showing:
+## Managing Multiple Sites
 
-- **Services Status**: Shows if Nginx, MySQL, PostgreSQL, and PHP-FPM are running
-- **Network Information**: Displays server IP and ports for all services
-- **Site Information**: Details on each Laravel site created including paths and URLs
-- **Database Configuration**: Shows database type, name, and credentials
-- **Environment Settings**: Extracts key settings from Laravel .env files
+For managing multiple Laravel sites, you can edit the `playbooks/manage_laravel_sites.yml` file to define your sites:
 
-This helps you quickly verify that everything was set up correctly and provides all the information needed to start using your Laravel environment immediately.
+```yml
+vars:
+  laravel_sites:
+    - name: site1
+      domain: site1.local
+      db_connection: mysql
+      db_database: site1_db
+      
+    - name: site2
+      domain: site2.local
+      git_repo: https://github.com/username/site2.git
+      git_branch: develop
+      db_connection: pgsql
+      run_migrations: true
+```
 
-## Requirements
+Then run:
 
-- Ubuntu/Debian-based system
-- Basic system packages (installed automatically by the setup script)
-- Sudo/root access 
+```bash
+ansible-playbook playbooks/manage_laravel_sites.yml
+```
+
+## Directory Structure
+
+- `playbooks/` - Ansible playbooks
+- `roles/` - Ansible roles
+- `templates/` - Configuration templates
+- `setup-laravel.sh` - Main setup script
+- `setup-site.sh` - Site creation script
+
+## Customization
+
+You can customize various aspects of the environment:
+
+- Edit `playbooks/setup_laravel_server.yml` to modify server configuration
+- Modify templates in the `templates/` directory
+- Edit role defaults in `roles/*/defaults/main.yml`
+
+## Troubleshooting
+
+Common issues:
+
+1. **Permission problems**: Run the setup script with sudo
+2. **Domain not accessible**: Add the domain to your local hosts file
+3. **Database connection issues**: Check your .env file configuration 

@@ -9,7 +9,7 @@
   
   vars:
     # Define your Laravel sites here
-    laravel_sites:
+    laravel_sites: []
       # Example site configuration:
       # - name: mysite1
       #   domain: mysite1.local
@@ -32,8 +32,8 @@
   
   tasks:
     - name: Check if user has defined sites
-      fail:
-        msg: "No Laravel sites defined. Please add site configurations to the laravel_sites variable."
+      debug:
+        msg: "No Laravel sites defined. Please add site configurations to the laravel_sites variable in group_vars/all.yml or directly in the playbook."
       when: laravel_sites is not defined or laravel_sites | length == 0
     
     - name: Check MySQL database exists
@@ -41,8 +41,10 @@
         name: "{{ site.db_database | default(site.name) }}"
         state: present
         login_unix_socket: /var/run/mysqld/mysqld.sock
-      when: site.db_connection | default('mysql') == 'mysql'
-      loop: "{{ laravel_sites }}"
+      when: 
+        - laravel_sites is defined and laravel_sites | length > 0
+        - site.db_connection | default('mysql') == 'mysql'
+      loop: "{{ laravel_sites | default([]) }}"
       loop_control:
         loop_var: site
       register: mysql_db_created
@@ -53,8 +55,10 @@
       postgresql_db:
         name: "{{ site.db_database | default(site.name) }}"
         state: present
-      when: site.db_connection | default('mysql') == 'pgsql'
-      loop: "{{ laravel_sites }}"
+      when: 
+        - laravel_sites is defined and laravel_sites | length > 0
+        - site.db_connection | default('mysql') == 'pgsql'
+      loop: "{{ laravel_sites | default([]) }}"
       loop_control:
         loop_var: site
       register: pgsql_db_created
@@ -62,6 +66,7 @@
     - name: Mark database as configured
       set_fact:
         site_db_configured: true
+      when: laravel_sites is defined and laravel_sites | length > 0
       
     - name: Set up Laravel sites
       include_role:
@@ -86,9 +91,10 @@
         db_database: "{{ site.db_database | default(site.name) }}"
         db_username: "{{ site.db_username | default('root') }}"
         db_password: "{{ site.db_password | default('') }}"
-      loop: "{{ laravel_sites }}"
+      loop: "{{ laravel_sites | default([]) }}"
       loop_control:
         loop_var: site
+      when: laravel_sites is defined and laravel_sites | length > 0
         
   post_tasks:
     - name: Restart Nginx
@@ -99,6 +105,7 @@
     - name: Display sites information
       debug:
         msg: |
+          {% if laravel_sites is defined and laravel_sites | length > 0 %}
           Laravel sites configured:
           {% for site in laravel_sites %}
           - {{ site.name }} ({{ site.domain | default(site.name + '.local') }})
@@ -107,4 +114,7 @@
           You can access these sites at:
           {% for site in laravel_sites %}
           http://{{ site.domain | default(site.name + '.local') }}
-          {% endfor %} 
+          {% endfor %}
+          {% else %}
+          No Laravel sites were configured. Add sites to the laravel_sites variable to configure them.
+          {% endif %} 

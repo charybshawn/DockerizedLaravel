@@ -1,91 +1,159 @@
 #!/bin/bash
-# Script to set up a new Laravel site
+# Script to create a new Laravel site
+# Usage: ./setup-site.sh sitename [domain] [git_repo] [git_branch]
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "Please run this script as root or with sudo"
-    exit 1
+  echo -e "${RED}Please run as root or with sudo${NC}"
+  exit 1
 fi
 
-# Get site details
-read -p "Enter site name (e.g., myproject): " SITE_NAME
-read -p "Enter domain name [$SITE_NAME.local]: " DOMAIN_NAME
-DOMAIN_NAME=${DOMAIN_NAME:-$SITE_NAME.local}
-
-read -p "Use Git repository? (y/n): " USE_GIT
-if [[ $USE_GIT == "y" ]]; then
-    read -p "Enter Git repository URL: " GIT_REPO
-    read -p "Enter Git branch [main]: " GIT_BRANCH
-    GIT_BRANCH=${GIT_BRANCH:-main}
+# Get site name
+if [ -z "$1" ]; then
+  echo -e "${RED}Error: Site name is required${NC}"
+  echo "Usage: ./setup-site.sh sitename [domain] [git_repo] [git_branch]"
+  exit 1
 fi
 
-read -p "Database type (mysql/pgsql) [mysql]: " DB_TYPE
-DB_TYPE=${DB_TYPE:-mysql}
-read -p "Database name [$SITE_NAME]: " DB_NAME
-DB_NAME=${DB_NAME:-$SITE_NAME}
-read -p "Database username [root]: " DB_USER
-DB_USER=${DB_USER:-root}
-read -s -p "Database password: " DB_PASS
-echo ""
+SITE_NAME=$1
 
-read -p "Run migrations after setup? (y/n) [n]: " RUN_MIGRATIONS
-RUN_MIGRATIONS=${RUN_MIGRATIONS:-n}
-
-read -p "Install NPM dependencies? (y/n) [n]: " INSTALL_NPM
-INSTALL_NPM=${INSTALL_NPM:-n}
-
-read -p "Compile assets? (y/n) [n]: " COMPILE_ASSETS
-COMPILE_ASSETS=${COMPILE_ASSETS:-n}
-
-# Create site configuration file
-CONFIG_FILE="site_config.yml"
-
-echo "---" > $CONFIG_FILE
-echo "laravel_sites:" >> $CONFIG_FILE
-echo "  - name: $SITE_NAME" >> $CONFIG_FILE
-echo "    domain: $DOMAIN_NAME" >> $CONFIG_FILE
-
-if [[ $USE_GIT == "y" ]]; then
-    echo "    git_repo: $GIT_REPO" >> $CONFIG_FILE
-    echo "    git_branch: $GIT_BRANCH" >> $CONFIG_FILE
+# Get domain (default to sitename.local)
+if [ -z "$2" ]; then
+  DOMAIN="${SITE_NAME}.local"
+else
+  DOMAIN=$2
 fi
 
-echo "    db_connection: $DB_TYPE" >> $CONFIG_FILE
-echo "    db_database: $DB_NAME" >> $CONFIG_FILE
-echo "    db_username: $DB_USER" >> $CONFIG_FILE
-echo "    db_password: $DB_PASS" >> $CONFIG_FILE
+# Get Git repository (optional)
+GIT_REPO=${3:-""}
 
-if [[ $RUN_MIGRATIONS == "y" ]]; then
-    echo "    run_migrations: true" >> $CONFIG_FILE
-    echo "    seed_db: false" >> $CONFIG_FILE
+# Get Git branch (default to main if repo is provided)
+GIT_BRANCH=${4:-"main"}
+
+# Database type - default to MySQL
+DB_TYPE="mysql"
+DB_NAME=$SITE_NAME
+DB_USER="root"
+
+# Create a temporary playbook for this specific site
+cat > /tmp/site_setup.yml << EOF
+---
+- name: Setup Laravel Site
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    laravel_sites:
+      - name: ${SITE_NAME}
+        domain: ${DOMAIN}
+        db_connection: ${DB_TYPE}
+        db_database: ${DB_NAME}
+        git_repo: "${GIT_REPO}"
+        git_branch: "${GIT_BRANCH}"
+        run_migrations: true
+        seed_db: false
+        
+  pre_tasks:
+    - name: Set a flag that npm is installed
+      set_fact:
+        npm_installed: true
+  
+  tasks:
+    - name: Check MySQL database exists
+      mysql_db:
+        name: "{{ site.db_database | default(site.name) }}"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      when: site.db_connection | default('mysql') == 'mysql'
+      loop: "{{ laravel_sites }}"
+      loop_control:
+        loop_var: site
+      register: mysql_db_created
+      
+    - name: Mark database as configured
+      set_fact:
+        site_db_configured: true
+      
+    - name: Set up Laravel sites
+      include_role:
+        name: laravel_site
+      vars:
+        site_name: "{{ site.name }}"
+        site_domain: "{{ site.domain | default(site.name + '.local') }}"
+        git_repo: "{{ site.git_repo | default('') }}"
+        git_branch: "{{ site.git_branch | default('main') }}"
+        copy_env: "{{ site.copy_env | default(true) }}"
+        install_dependencies: "{{ site.install_dependencies | default(true) }}"
+        generate_key: "{{ site.generate_key | default(true) }}"
+        install_npm_dependencies: "{{ site.install_npm_dependencies | default(false) }}"
+        compile_assets: "{{ site.compile_assets | default(false) }}"
+        run_migrations: "{{ site.run_migrations | default(true) }}"
+        seed_db: "{{ site.seed_db | default(false) }}"
+        db_configured: "{{ site_db_configured | default(true) }}"
+        db_connection: "{{ site.db_connection | default('mysql') }}"
+        db_host: "{{ site.db_host | default('127.0.0.1') }}"
+        db_port: "{{ site.db_port | default('3306') }}"
+        db_database: "{{ site.db_database | default(site.name) }}"
+        db_username: "{{ site.db_username | default('root') }}"
+        db_password: "{{ site.db_password | default('') }}"
+      loop: "{{ laravel_sites }}"
+      loop_control:
+        loop_var: site
+        
+  post_tasks:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+        
+    - name: Display site information
+      debug:
+        msg: |
+          Laravel site configured:
+          - {{ laravel_sites[0].name }} ({{ laravel_sites[0].domain | default(laravel_sites[0].name + '.local') }})
+          
+          You can access this site at:
+          http://{{ laravel_sites[0].domain | default(laravel_sites[0].name + '.local') }}
+          
+          Site path: /var/www/{{ laravel_sites[0].name }}/
+EOF
+
+echo -e "${BLUE}Setting up Laravel site: ${SITE_NAME}${NC}"
+echo -e "${BLUE}Domain: ${DOMAIN}${NC}"
+if [ -n "$GIT_REPO" ]; then
+  echo -e "${BLUE}Git Repository: ${GIT_REPO} (branch: ${GIT_BRANCH})${NC}"
+else
+  echo -e "${BLUE}Creating new Laravel project${NC}"
 fi
+echo -e "${BLUE}Running Ansible playbook...${NC}"
 
-if [[ $INSTALL_NPM == "y" ]]; then
-    echo "    install_npm_dependencies: true" >> $CONFIG_FILE
-fi
-
-if [[ $COMPILE_ASSETS == "y" ]]; then
-    echo "    compile_assets: true" >> $CONFIG_FILE
-    echo "    npm_command: dev" >> $CONFIG_FILE
-fi
-
-# Run the Ansible playbook with our configuration
-echo "Setting up site $SITE_NAME..."
-ansible-playbook playbooks/manage_laravel_sites.yml -i inventory/hosts.yml -e "@$CONFIG_FILE"
+# Run the temporary playbook
+ansible-playbook /tmp/site_setup.yml
 
 # Clean up
-rm $CONFIG_FILE
+rm /tmp/site_setup.yml
+
+echo -e "${GREEN}Site setup complete!${NC}"
+echo -e "${GREEN}Your Laravel site is available at:${NC}"
+echo -e "${GREEN}http://${DOMAIN}${NC}"
+echo -e "${GREEN}Local path: /var/www/${SITE_NAME}/${NC}"
 
 # Get services status
-NGINX_STATUS=$(systemctl is-active nginx)
-DB_STATUS=$(systemctl is-active $([[ "$DB_TYPE" == "mysql" ]] && echo "mysql" || echo "postgresql"))
-PHP_STATUS=$(systemctl is-active php8.1-fpm)
+NGINX_STATUS=$(systemctl is-active nginx 2>/dev/null || echo "unknown")
+DB_STATUS=$(systemctl is-active $([[ "$DB_TYPE" == "mysql" ]] && echo "mysql" || echo "postgresql") 2>/dev/null || echo "unknown")
+PHP_STATUS=$(systemctl is-active php8.1-fpm 2>/dev/null || echo "unknown")
 
 # Get public IP
 PUBLIC_IP=$(hostname -I | awk '{print $1}')
 
-echo ""
-echo "✅ Site $SITE_NAME setup complete!"
 echo ""
 echo "📊 Site Summary:"
 echo "===================================================="
@@ -96,9 +164,9 @@ echo "  - PHP-FPM: ${PHP_STATUS}"
 echo ""
 echo "🌐 Site Information:"
 echo "  - Site Name: $SITE_NAME"
-echo "  - Domain: $DOMAIN_NAME"
+echo "  - Domain: $DOMAIN"
 echo "  - URL: http://${PUBLIC_IP}/"
-echo "  - URL: http://${DOMAIN_NAME}/ (add to your hosts file)"
+echo "  - URL: http://${DOMAIN}/ (add to your hosts file)"
 echo "  - Path: /var/www/${SITE_NAME}/"
 echo ""
 echo "💾 Database Information:"
@@ -107,6 +175,13 @@ echo "  - Name: $DB_NAME"
 echo "  - User: $DB_USER"
 echo "  - Port: $([ "$DB_TYPE" == "mysql" ] && echo "3306" || echo "5432")"
 echo ""
+
+if [ -n "$GIT_REPO" ]; then
+  echo "🔄 Git Information:"
+  echo "  - Repository: $GIT_REPO"
+  echo "  - Branch: $GIT_BRANCH"
+  echo ""
+fi
 
 # Check if .env file exists to extract APP_URL
 if [ -f "/var/www/${SITE_NAME}/.env" ]; then
@@ -120,5 +195,5 @@ fi
 
 echo "===================================================="
 echo "To access your site, add this entry to your local machine's hosts file:"
-echo "${PUBLIC_IP} ${DOMAIN_NAME}"
+echo "${PUBLIC_IP} ${DOMAIN}"
 echo "" 
