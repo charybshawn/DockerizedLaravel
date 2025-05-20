@@ -1,0 +1,12 @@
+---
+# Main playbook for Laravel development environment setup (local execution)
+
+- name: Setup Laravel development environment
+  import_playbook: playbooks/setup_laravel_server.yml
+
+- name: Setup multiple Laravel sites (optional)
+  import_playbook: playbooks/manage_laravel_sites.yml
+  # This playbook is commented out by default as it should be run separately after configuring sites
+  # Uncomment if you want to run it as part of the main workflow
+  when: false
+

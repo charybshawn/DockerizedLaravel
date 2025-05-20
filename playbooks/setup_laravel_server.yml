@@ -1,0 +1,288 @@
+---
+# Playbook for setting up a Laravel development server locally
+
+- name: Configure Laravel development environment
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+  
+  vars_prompt:
+    - name: mysql_root_password
+      prompt: "MySQL root password"
+      private: yes
+      
+    - name: postgres_password
+      prompt: "PostgreSQL postgres user password"
+      private: yes
+      
+    - name: create_sample_site
+      prompt: "Create a sample Laravel site? (yes/no)"
+      private: no
+      default: "no"
+      
+    - name: sample_site_name
+      prompt: "Sample site name (URL will be this.local)"
+      private: no
+      default: "laravel"
+      when: create_sample_site == "yes"
+      
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - zip
+          - unzip
+          - acl
+          - htop
+          - vim
+          - python3-pip
+          - software-properties-common
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    # PHP Installation
+    - name: Add PHP repository
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Install PHP and extensions
+      apt:
+        name:
+          - php8.1
+          - php8.1-fpm
+          - php8.1-cli
+          - php8.1-common
+          - php8.1-mysql
+          - php8.1-pgsql
+          - php8.1-mbstring
+          - php8.1-xml
+          - php8.1-curl
+          - php8.1-zip
+          - php8.1-gd
+          - php8.1-intl
+          - php8.1-bcmath
+          - php8.1-soap
+          - php8.1-xdebug
+          - php8.1-redis
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    # Nginx Installation
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Start and enable Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      
+    # MySQL Installation
+    - name: Install MySQL
+      apt:
+        name:
+          - mysql-server
+          - mysql-client
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Start and enable MySQL
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+        
+    - name: Set MySQL root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        host_all: yes
+        state: present
+      no_log: true
+      
+    - name: Create .my.cnf file for root
+      copy:
+        dest: /root/.my.cnf
+        content: |
+          [client]
+          user=root
+          password={{ mysql_root_password }}
+        mode: '0600'
+      no_log: true
+      
+    # PostgreSQL Installation
+    - name: Install PostgreSQL
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - libpq-dev
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Start and enable PostgreSQL
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+        
+    - name: Set PostgreSQL postgres user password
+      become: yes
+      become_user: postgres
+      postgresql_user:
+        name: postgres
+        password: "{{ postgres_password }}"
+      no_log: true
+      
+    # Node.js Installation
+    - name: Install Node.js repository
+      shell: curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+      args:
+        warn: false
+      when: ansible_os_family == "Debian"
+      
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Install npm packages globally
+      npm:
+        name: "{{ item }}"
+        global: yes
+      loop:
+        - npm
+        - yarn
+        
+    # Composer Installation
+    - name: Download Composer installer
+      get_url:
+        url: https://getcomposer.org/installer
+        dest: /tmp/composer-setup.php
+        mode: '0755'
+        
+    - name: Install Composer globally
+      shell: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+      args:
+        creates: /usr/local/bin/composer
+        
+    - name: Remove Composer installer
+      file:
+        path: /tmp/composer-setup.php
+        state: absent
+        
+    # Laravel setup
+    - name: Setup Laravel development environment
+      block:
+        - name: Create web directory for Laravel site
+          file:
+            path: "/var/www/{{ sample_site_name }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: www-data
+            mode: '0755'
+          
+        - name: Install Laravel using Composer
+          become: yes
+          become_user: "{{ ansible_user }}"
+          shell: composer create-project laravel/laravel /var/www/{{ sample_site_name }} --no-interaction
+          args:
+            creates: "/var/www/{{ sample_site_name }}/artisan"
+          
+        - name: Set proper permissions for Laravel directories
+          file:
+            path: "/var/www/{{ sample_site_name }}/{{ item }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: www-data
+            mode: '0775'
+            recurse: yes
+          loop:
+            - storage
+            - bootstrap/cache
+          
+        - name: Create Nginx server block for Laravel
+          template:
+            src: ../templates/laravel_nginx.j2
+            dest: /etc/nginx/sites-available/{{ sample_site_name }}
+            owner: root
+            group: root
+            mode: '0644'
+          vars:
+            server_name: "{{ sample_site_name }}.local"
+            root_directory: "/var/www/{{ sample_site_name }}/public"
+          
+        - name: Enable Nginx server block
+          file:
+            src: /etc/nginx/sites-available/{{ sample_site_name }}
+            dest: /etc/nginx/sites-enabled/{{ sample_site_name }}
+            state: link
+          
+        - name: Add hostname to /etc/hosts
+          lineinfile:
+            path: /etc/hosts
+            line: "127.0.0.1 {{ sample_site_name }}.local"
+            state: present
+          
+        - name: Restart Nginx
+          service:
+            name: nginx
+            state: restarted
+            
+      when: create_sample_site == "yes"
+        
+    # Final configuration
+    - name: Configure PHP-FPM for better performance
+      lineinfile:
+        path: /etc/php/8.1/fpm/pool.d/www.conf
+        regexp: '^;?{{ item.key }} ='
+        line: '{{ item.key }} = {{ item.value }}'
+      loop:
+        - { key: 'pm.max_children', value: '50' }
+        - { key: 'pm.start_servers', value: '5' }
+        - { key: 'pm.min_spare_servers', value: '5' }
+        - { key: 'pm.max_spare_servers', value: '35' }
+      notify: restart php-fpm
+    
+    - name: Set up server summary page
+      template:
+        src: ../templates/server_info.j2
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        server_name: "{{ ansible_hostname }}"
+        php_version: "8.1"
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+        
+    - name: restart php-fpm
+      service:
+        name: php8.1-fpm
+        state: restarted 

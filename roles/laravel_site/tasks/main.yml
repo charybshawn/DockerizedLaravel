@@ -1,0 +1,108 @@
+---
+# Tasks for creating and managing Laravel sites
+
+- name: Create site directory
+  file:
+    path: "/var/www/{{ site_name }}"
+    state: directory
+    owner: "{{ site_owner | default(ansible_user) }}"
+    group: www-data
+    mode: '0755'
+
+- name: Clone Laravel repository if git_repo is provided
+  git:
+    repo: "{{ git_repo }}"
+    dest: "/var/www/{{ site_name }}"
+    version: "{{ git_branch | default('main') }}"
+  when: git_repo is defined and git_repo != ""
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+
+- name: Create new Laravel project if not cloning from repository
+  shell: composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction
+  args:
+    creates: "/var/www/{{ site_name }}/artisan"
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: git_repo is not defined or git_repo == ""
+
+- name: Copy .env file if provided
+  template:
+    src: "{{ env_template | default('../templates/laravel.env.j2') }}"
+    dest: "/var/www/{{ site_name }}/.env"
+    owner: "{{ site_owner | default(ansible_user) }}"
+    group: www-data
+    mode: '0640'
+  when: copy_env | default(true) | bool
+
+- name: Set proper permissions for Laravel directories
+  file:
+    path: "/var/www/{{ site_name }}/{{ item }}"
+    state: directory
+    owner: "{{ site_owner | default(ansible_user) }}"
+    group: www-data
+    mode: '0775'
+    recurse: yes
+  loop:
+    - storage
+    - bootstrap/cache
+
+- name: Install Composer dependencies
+  shell: cd /var/www/{{ site_name }} && composer install --no-interaction
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: install_dependencies | default(true) | bool
+
+- name: Run key generation
+  shell: cd /var/www/{{ site_name }} && php artisan key:generate --force
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: generate_key | default(true) | bool
+
+- name: Install NPM dependencies
+  shell: cd /var/www/{{ site_name }} && npm install
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: install_npm_dependencies | default(false) | bool and npm_installed is defined and npm_installed | bool
+
+- name: Compile assets
+  shell: cd /var/www/{{ site_name }} && npm run {{ npm_command | default('dev') }}
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: compile_assets | default(false) | bool and npm_installed is defined and npm_installed | bool
+
+- name: Create Nginx server block
+  template:
+    src: "{{ nginx_template | default('../templates/laravel_nginx.j2') }}"
+    dest: "/etc/nginx/sites-available/{{ site_name }}"
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    server_name: "{{ site_domain | default(site_name + '.local') }}"
+    root_directory: "/var/www/{{ site_name }}/public"
+
+- name: Enable Nginx server block
+  file:
+    src: "/etc/nginx/sites-available/{{ site_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ site_name }}"
+    state: link
+
+- name: Add domain to /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "127.0.0.1 {{ site_domain | default(site_name + '.local') }}"
+    state: present
+  when: update_hosts | default(true) | bool
+
+- name: Run migrations if requested
+  shell: cd /var/www/{{ site_name }} && php artisan migrate --force
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: run_migrations | default(false) | bool and db_configured | default(false) | bool
+
+- name: Seed database if requested
+  shell: cd /var/www/{{ site_name }} && php artisan db:seed --force
+  become: yes
+  become_user: "{{ site_owner | default(ansible_user) }}"
+  when: seed_db | default(false) | bool and db_configured | default(false) | bool 

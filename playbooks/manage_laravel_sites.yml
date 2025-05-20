@@ -1,0 +1,110 @@
+---
+# Playbook for managing multiple Laravel sites on this server
+
+- name: Manage Laravel Sites
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Define your Laravel sites here
+    laravel_sites:
+      # Example site configuration:
+      # - name: mysite1
+      #   domain: mysite1.local
+      #   git_repo: https://github.com/yourname/mysite1.git
+      #   git_branch: main
+      #   db_connection: mysql
+      #   db_database: mysite1
+      #   db_username: root
+      #   db_password: password
+      #   run_migrations: true
+      #   seed_db: true
+      #   install_npm_dependencies: true
+      #   compile_assets: true
+      #   npm_command: dev
+      
+  pre_tasks:
+    - name: Set a flag that npm is installed
+      set_fact:
+        npm_installed: true
+  
+  tasks:
+    - name: Check if user has defined sites
+      fail:
+        msg: "No Laravel sites defined. Please add site configurations to the laravel_sites variable."
+      when: laravel_sites is not defined or laravel_sites | length == 0
+    
+    - name: Check MySQL database exists
+      mysql_db:
+        name: "{{ site.db_database | default(site.name) }}"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      when: site.db_connection | default('mysql') == 'mysql'
+      loop: "{{ laravel_sites }}"
+      loop_control:
+        loop_var: site
+      register: mysql_db_created
+      
+    - name: Create PostgreSQL database
+      become: yes
+      become_user: postgres
+      postgresql_db:
+        name: "{{ site.db_database | default(site.name) }}"
+        state: present
+      when: site.db_connection | default('mysql') == 'pgsql'
+      loop: "{{ laravel_sites }}"
+      loop_control:
+        loop_var: site
+      register: pgsql_db_created
+      
+    - name: Mark database as configured
+      set_fact:
+        site_db_configured: true
+      
+    - name: Set up Laravel sites
+      include_role:
+        name: laravel_site
+      vars:
+        site_name: "{{ site.name }}"
+        site_domain: "{{ site.domain | default(site.name + '.local') }}"
+        git_repo: "{{ site.git_repo | default('') }}"
+        git_branch: "{{ site.git_branch | default('main') }}"
+        copy_env: "{{ site.copy_env | default(true) }}"
+        install_dependencies: "{{ site.install_dependencies | default(true) }}"
+        generate_key: "{{ site.generate_key | default(true) }}"
+        install_npm_dependencies: "{{ site.install_npm_dependencies | default(false) }}"
+        compile_assets: "{{ site.compile_assets | default(false) }}"
+        npm_command: "{{ site.npm_command | default('dev') }}"
+        run_migrations: "{{ site.run_migrations | default(false) }}"
+        seed_db: "{{ site.seed_db | default(false) }}"
+        db_configured: "{{ site_db_configured | default(false) }}"
+        db_connection: "{{ site.db_connection | default('mysql') }}"
+        db_host: "{{ site.db_host | default('127.0.0.1') }}"
+        db_port: "{{ site.db_port | default('3306' if site.db_connection | default('mysql') == 'mysql' else '5432') }}"
+        db_database: "{{ site.db_database | default(site.name) }}"
+        db_username: "{{ site.db_username | default('root') }}"
+        db_password: "{{ site.db_password | default('') }}"
+      loop: "{{ laravel_sites }}"
+      loop_control:
+        loop_var: site
+        
+  post_tasks:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+        
+    - name: Display sites information
+      debug:
+        msg: |
+          Laravel sites configured:
+          {% for site in laravel_sites %}
+          - {{ site.name }} ({{ site.domain | default(site.name + '.local') }})
+          {% endfor %}
+          
+          You can access these sites at:
+          {% for site in laravel_sites %}
+          http://{{ site.domain | default(site.name + '.local') }}
+          {% endfor %} 
