@@ -98,8 +98,12 @@ PHP_VERSIONS=${PHP_VERSIONS:-"8.1"}
 read -p "Enter default PHP version: " DEFAULT_PHP_VERSION
 DEFAULT_PHP_VERSION=${DEFAULT_PHP_VERSION:-"8.1"}
 
+# Ask about sample site
+read -p "Create a sample Laravel site? (yes/no) [no]: " CREATE_SAMPLE_SITE
+CREATE_SAMPLE_SITE=${CREATE_SAMPLE_SITE:-"no"}
+
 # Export variables so they can be used by Ansible
-export ANSIBLE_EXTRA_VARS="php_versions='$PHP_VERSIONS' default_php_version='$DEFAULT_PHP_VERSION'"
+export ANSIBLE_EXTRA_VARS="php_versions='$PHP_VERSIONS' default_php_version='$DEFAULT_PHP_VERSION' create_sample_site='$CREATE_SAMPLE_SITE'"
 
 # Run the Ansible playbook
 echo -e "${BLUE}Running Ansible playbook...${NC}"
@@ -123,11 +127,14 @@ PUBLIC_IP=$(hostname -I | awk '{print $1}')
 
 # Check if sample site was created - look for both directory and Nginx config
 SAMPLE_SITE=""
-if [ -d "/var/www/laravel" ] && [ -f "/etc/nginx/sites-available/laravel" ]; then
+SITE_CREATED=false
+if [ "$CREATE_SAMPLE_SITE" = "yes" ] && [ -d "/var/www/laravel" ] && [ -f "/etc/nginx/sites-available/laravel" ]; then
     SAMPLE_SITE="laravel"
-elif [ -d "/var/www/laravel" ]; then
+    SITE_CREATED=true
+elif [ "$CREATE_SAMPLE_SITE" = "yes" ] && [ -d "/var/www/laravel" ]; then
     echo -e "${YELLOW}Warning: Laravel directory exists but no Nginx config found. Sample site may not be fully configured.${NC}"
     SAMPLE_SITE="laravel"
+    SITE_CREATED=true
 fi
 
 echo ""
@@ -161,14 +168,14 @@ echo "  - Installed PHP versions: ${PHP_VERSIONS_INSTALLED}"
 echo "  - Default PHP version: ${DEFAULT_PHP_VERSION}"
 echo ""
 
-if [ -n "$SAMPLE_SITE" ]; then
-    SAMPLE_SITE_PHP=$(grep -r "fastcgi_pass" /etc/nginx/sites-available/$SAMPLE_SITE | grep -o "php[0-9]\+\.[0-9]\+" | head -1 | sed 's/php//')
+if [ "$SITE_CREATED" = true ]; then
+    SAMPLE_SITE_PHP=$(grep -r "fastcgi_pass" /etc/nginx/sites-available/$SAMPLE_SITE 2>/dev/null | grep -o "php[0-9]\+\.[0-9]\+" | head -1 | sed 's/php//' || echo "unknown")
     echo -e "${BLUE}🚀 Sample Laravel Site:${NC}"
     echo "  - Site: $SAMPLE_SITE"
     echo "  - URL: http://${PUBLIC_IP}/"
     echo "  - URL: http://${SAMPLE_SITE}.local/ (add to your hosts file)"
     echo "  - Path: /var/www/${SAMPLE_SITE}/"
-    echo "  - PHP Version: ${SAMPLE_SITE_PHP:-"unknown"}"
+    echo "  - PHP Version: ${SAMPLE_SITE_PHP}"
 else
     echo -e "${YELLOW}ℹ️ No sample site was created.${NC}"
     echo "  - Run './setup-site.sh' to create a new Laravel site"

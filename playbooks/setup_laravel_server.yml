@@ -144,7 +144,7 @@
           
         - name: Configure PHP-FPM for better performance for each version
           lineinfile:
-            path: /etc/php/{{ php_version }}/fpm/pool.d/www.conf
+            path: /etc/php/{{ item.0 }}/fpm/pool.d/www.conf
             regexp: '^;?{{ item.1.key }} ='
             line: '{{ item.1.key }} = {{ item.1.value }}'
           loop: "{{ php_version_list | product([
