@@ -6,6 +6,7 @@
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
+YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 # Check if running as root
@@ -39,6 +40,23 @@ fi
 
 # Get Git repository (optional)
 GIT_REPO=${4:-""}
+
+# Check if using HTTPS for GitHub
+if [[ "$GIT_REPO" == *"https://github.com"* ]]; then
+  echo -e "${YELLOW}Warning: Using HTTPS for GitHub repository URLs.${NC}"
+  echo -e "${YELLOW}GitHub no longer supports password authentication for Git operations.${NC}"
+  echo -e "${YELLOW}If this is a private repository, consider using an SSH URL (git@github.com:username/repo.git) instead.${NC}"
+  echo -e "${YELLOW}For public repositories, the script will attempt to clone anonymously.${NC}"
+  echo ""
+  
+  # Ask if they want to continue or switch to SSH
+  read -p "Do you want to continue with HTTPS URL? (y/n): " CONTINUE_HTTPS
+  if [[ $CONTINUE_HTTPS != "y" && $CONTINUE_HTTPS != "Y" ]]; then
+    SSH_URL=$(echo "$GIT_REPO" | sed 's|https://github.com/|git@github.com:|' | sed 's|\.git$|.git|')
+    echo -e "${BLUE}Converting to SSH URL: ${SSH_URL}${NC}"
+    GIT_REPO=$SSH_URL
+  fi
+fi
 
 # Get Git branch (default to main if repo is provided)
 GIT_BRANCH=${5:-"main"}

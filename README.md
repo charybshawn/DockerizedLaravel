@@ -75,6 +75,19 @@ Where:
 - `https://github.com/username/laravel-project.git` - Git repository URL
 - `main` - Branch name (optional, defaults to 'main')
 
+### Working with GitHub Repositories
+
+For GitHub repositories, you have two options:
+
+1. **Public Repositories**: The script will detect public repositories and attempt to clone them anonymously.
+
+2. **Private Repositories**: For private repositories, use SSH URLs instead of HTTPS:
+   ```bash
+   sudo ./setup-site.sh mysite example.local 80 git@github.com:username/private-repo.git main
+   ```
+
+   Make sure your SSH keys are properly set up on the server with access to the repository.
+
 ## Managing Multiple Sites
 
 For managing multiple Laravel sites, you can edit the `playbooks/manage_laravel_sites.yml` file to define your sites:
@@ -91,7 +104,7 @@ vars:
     - name: site2
       domain: site2.local
       port: 8080
-      git_repo: https://github.com/username/site2.git
+      git_repo: git@github.com:username/site2.git
       git_branch: develop
       db_connection: pgsql
       run_migrations: true
@@ -126,4 +139,5 @@ Common issues:
 1. **Permission problems**: Run the setup script with sudo
 2. **Domain not accessible**: Add the domain to your local hosts file
 3. **Database connection issues**: Check your .env file configuration
-4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service 
+4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service
+5. **Git authentication failures**: For private GitHub repositories, use SSH URLs (git@github.com:username/repo.git) instead of HTTPS URLs 
