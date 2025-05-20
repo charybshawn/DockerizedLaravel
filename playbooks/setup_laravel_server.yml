@@ -30,18 +30,6 @@
       prompt: "Create a sample Laravel site? (yes/no)"
       private: no
       default: "no"
-      
-    - name: sample_site_name
-      prompt: "Sample site name (URL will be this.local)"
-      private: no
-      default: "laravel"
-      when: create_sample_site | lower == 'yes'
-      
-    - name: sample_site_php_version
-      prompt: "PHP version for sample site"
-      private: no
-      default: "{{ default_php_version }}"
-      when: create_sample_site | lower == 'yes'
   
   vars:
     # Set a flag to determine if sample site should be created
@@ -50,15 +38,42 @@
     current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
     # Parse PHP versions
     php_version_list: "{{ php_versions.split() }}"
-    # Define sample site defaults when not prompted
-    sample_site_name: "{{ sample_site_name | default('laravel') }}"
-    sample_site_php_version: "{{ sample_site_php_version | default(default_php_version) }}"
+    # Define sample site defaults
+    sample_site_name: "laravel"
+    sample_site_php_version: "{{ default_php_version }}"
       
   tasks:
     - name: Display current user
       debug:
         msg: "Setting up Laravel environment for user: {{ current_user }}"
-        
+    
+    - name: Prompt for sample site details if creating one
+      block:
+        - name: Ask for sample site name
+          pause:
+            prompt: "Enter sample site name (URL will be this.local)"
+            echo: yes
+          register: sample_site_name_input
+          when: create_sample
+          
+        - name: Set sample site name
+          set_fact:
+            sample_site_name: "{{ sample_site_name_input.user_input | default('laravel') }}"
+          when: create_sample and sample_site_name_input.user_input is defined
+          
+        - name: Ask for sample site PHP version
+          pause:
+            prompt: "Enter PHP version for sample site"
+            echo: yes
+          register: sample_site_php_version_input
+          when: create_sample
+          
+        - name: Set sample site PHP version
+          set_fact:
+            sample_site_php_version: "{{ sample_site_php_version_input.user_input | default(default_php_version) }}"
+          when: create_sample and sample_site_php_version_input.user_input is defined
+      when: create_sample
+      
     - name: Update package cache
       apt:
         update_cache: yes
