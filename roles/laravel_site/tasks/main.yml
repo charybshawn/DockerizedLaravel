@@ -59,7 +59,7 @@
 
 - name: Copy .env file if provided
   template:
-    src: "{{ env_template | default('templates/laravel.env.j2') }}"
+    src: "{{ env_template | default('laravel.env.j2') }}"
     dest: "/var/www/{{ site_name }}/.env"
     owner: "{{ site_user }}"
     group: www-data
@@ -134,7 +134,7 @@
 
 - name: Create Nginx server block
   template:
-    src: "{{ nginx_template | default('templates/laravel_nginx.j2') }}"
+    src: "{{ nginx_template | default('laravel_nginx.j2') }}"
     dest: "/etc/nginx/sites-available/{{ site_name }}"
     owner: root
     group: root
