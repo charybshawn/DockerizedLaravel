@@ -35,23 +35,27 @@
     version: "{{ git_branch | default('main') }}"
     accept_hostkey: yes
   register: git_clone_result
-  ignore_errors: yes
   when: git_repo is defined and git_repo != ""
   become: yes
   become_user: "{{ site_user }}"
+  
+- name: Fail if Git repository cloning failed
+  fail:
+    msg: "Failed to clone Git repository: {{ normalized_git_repo | default(git_repo) }}. Please check the repository URL and your access permissions."
+  when: git_repo is defined and git_repo != "" and git_clone_result.failed is defined and git_clone_result.failed
 
 - name: Debug Git clone result
   debug:
     var: git_clone_result
   when: git_repo is defined and git_repo != ""
 
-- name: Create fresh Laravel project if Git clone fails or no Git repo specified
+- name: Create fresh Laravel project if no Git repo is specified
   shell: composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction
   args:
     creates: "/var/www/{{ site_name }}/artisan"
   become: yes
   become_user: "{{ site_user }}"
-  when: (git_repo is not defined or git_repo == "") or (git_clone_result is defined and git_clone_result.failed)
+  when: git_repo is not defined or git_repo == ""
 
 - name: Copy .env file if provided
   template:

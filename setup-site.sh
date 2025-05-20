@@ -172,10 +172,17 @@ fi
 echo -e "${BLUE}Running Ansible playbook...${NC}"
 
 # Run the temporary playbook
-ansible-playbook /tmp/site_setup.yml
-
-# Clean up
-rm /tmp/site_setup.yml
+ansible-playbook /tmp/site_setup.yml || {
+  echo -e "${RED}Error occurred during setup.${NC}"
+  echo -e "${RED}If your repository could not be cloned, please check:${NC}"
+  echo -e "${RED}1. The repository URL is correct${NC}"
+  echo -e "${RED}2. You have proper access permissions${NC}"
+  echo -e "${RED}3. For GitHub repositories, consider using SSH instead of HTTPS${NC}"
+  echo -e "${RED}Site creation failed.${NC}"
+  # Clean up
+  rm /tmp/site_setup.yml
+  exit 1
+}
 
 echo -e "${GREEN}Site setup complete!${NC}"
 echo -e "${GREEN}Your Laravel site is available at:${NC}"
