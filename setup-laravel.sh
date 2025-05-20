@@ -1,9 +1,16 @@
 #!/bin/bash
 # Setup script for Laravel environment
 
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[1;36m'  # Cyan (more visible on dark themes)
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "Please run this script as root or with sudo"
+    echo -e "${RED}Please run this script as root or with sudo${NC}"
     exit 1
 fi
 
@@ -15,7 +22,7 @@ else
 fi
 ACTUAL_HOME=$(eval echo ~$ACTUAL_USER)
 
-echo "Setting up environment for user: $ACTUAL_USER"
+echo -e "${BLUE}Setting up environment for user: ${ACTUAL_USER}${NC}"
 
 # Function to check if a command exists
 command_exists() {
@@ -24,7 +31,7 @@ command_exists() {
 
 # Install OpenSSH server if not present
 if ! dpkg -l | grep -q openssh-server; then
-    echo "Installing OpenSSH server..."
+    echo -e "${BLUE}Installing OpenSSH server...${NC}"
     apt update
     apt install -y openssh-server
 fi
@@ -34,7 +41,7 @@ systemctl enable ssh
 systemctl start ssh
 
 # Setup SSH for current user
-echo "Setting up SSH for $ACTUAL_USER..."
+echo -e "${BLUE}Setting up SSH for ${ACTUAL_USER}...${NC}"
 
 # Create .ssh directory if it doesn't exist
 if [ ! -d "$ACTUAL_HOME/.ssh" ]; then
@@ -45,7 +52,7 @@ fi
 
 # Generate SSH key if it doesn't exist
 if [ ! -f "$ACTUAL_HOME/.ssh/id_rsa" ]; then
-    echo "Generating SSH key for $ACTUAL_USER..."
+    echo -e "${BLUE}Generating SSH key for ${ACTUAL_USER}...${NC}"
     sudo -u $ACTUAL_USER ssh-keygen -t rsa -b 4096 -f "$ACTUAL_HOME/.ssh/id_rsa" -N ""
 fi
 
@@ -63,29 +70,29 @@ if [ ! -f "$ACTUAL_HOME/.ssh/authorized_keys" ]; then
 fi
 
 # Display SSH public key
-echo "SSH key generated. Your public key is:"
+echo -e "${BLUE}SSH key generated. Your public key is:${NC}"
 echo "--------------------------------------------------"
 cat "$ACTUAL_HOME/.ssh/id_rsa.pub"
 echo "--------------------------------------------------"
 
 # Install Python and Ansible dependencies
-echo "Installing Python and Ansible dependencies..."
+echo -e "${BLUE}Installing Python and Ansible dependencies...${NC}"
 apt update
 apt install -y ansible python3 python3-pip
 
 # Check if pip3 is now available
 if ! command_exists pip3; then
-    echo "Error: pip3 installation failed. Please install manually with:"
+    echo -e "${RED}Error: pip3 installation failed. Please install manually with:${NC}"
     echo "apt-get install python3-pip"
     exit 1
 fi
 
 # Install required Python packages
-echo "Installing required Python packages..."
+echo -e "${BLUE}Installing required Python packages...${NC}"
 pip3 install -r requirements.txt
 
 # Run the Ansible playbook
-echo "Running Ansible playbook..."
+echo -e "${BLUE}Running Ansible playbook...${NC}"
 ansible-playbook main.yml -i inventory/hosts.yml
 
 # Get services status
@@ -104,18 +111,18 @@ if [ -d "/var/www/laravel" ]; then
 fi
 
 echo ""
-echo "✅ Laravel environment setup complete!"
-echo "✅ SSH has been set up for user $ACTUAL_USER"
+echo -e "${GREEN}✅ Laravel environment setup complete!${NC}"
+echo -e "${GREEN}✅ SSH has been set up for user ${ACTUAL_USER}${NC}"
 echo ""
-echo "📊 Environment Summary:"
+echo -e "${BLUE}📊 Environment Summary:${NC}"
 echo "===================================================="
-echo "🔧 Services Status:"
+echo -e "${BLUE}🔧 Services Status:${NC}"
 echo "  - Nginx: ${NGINX_STATUS}"
 echo "  - MySQL: ${MYSQL_STATUS}"
 echo "  - PostgreSQL: ${POSTGRESQL_STATUS}"
 echo "  - PHP-FPM: ${PHP_STATUS}"
 echo ""
-echo "🌐 Network Information:"
+echo -e "${BLUE}🌐 Network Information:${NC}"
 echo "  - Server IP: ${PUBLIC_IP}"
 echo "  - Web Port: 80 (HTTP)"
 echo "  - SSH Port: 22"
@@ -124,17 +131,17 @@ echo "  - PostgreSQL Port: 5432"
 echo ""
 
 if [ -n "$SAMPLE_SITE" ]; then
-    echo "🚀 Sample Laravel Site:"
+    echo -e "${BLUE}🚀 Sample Laravel Site:${NC}"
     echo "  - Site: $SAMPLE_SITE"
     echo "  - URL: http://${PUBLIC_IP}/"
     echo "  - URL: http://${SAMPLE_SITE}.local/ (add to your hosts file)"
     echo "  - Path: /var/www/${SAMPLE_SITE}/"
 else
-    echo "ℹ️ No sample site was created."
+    echo -e "${YELLOW}ℹ️ No sample site was created.${NC}"
     echo "  - Run './setup-site.sh' to create a new Laravel site"
 fi
 
 echo ""
 echo "===================================================="
-echo "To create additional Laravel sites run: sudo ./setup-site.sh"
+echo -e "${GREEN}To create additional Laravel sites run: sudo ./setup-site.sh${NC}"
 echo "" 

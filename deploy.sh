@@ -4,7 +4,7 @@
 
 # Colors for output
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+BLUE='\033[1;36m'  # Cyan (more visible on dark themes)
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
