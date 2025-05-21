@@ -9,6 +9,7 @@
   
   vars:
     # Default values that can be overridden via command line
+    db_system: "{{ db_system | default('mysql') }}"
     mysql_root_password: "{{ mysql_root_password | default('') }}"
     postgres_password: "{{ postgres_password | default('') }}"
     php_versions: "{{ php_versions | default('8.1') }}"
@@ -26,6 +27,11 @@
     sample_site_php_version: "{{ default_php_version }}"
     adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
     adminer_password_final: "{{ adminer_password | default('admin') }}"
+    
+    # Database flags
+    install_mysql: "{{ db_system == 'mysql' }}"
+    install_postgres: "{{ db_system == 'postgres' }}"
+    install_sqlite: "{{ db_system == 'sqlite' }}"
       
   tasks:
     - name: Display current user
@@ -35,29 +41,44 @@
 
     - name: Prompt for missing required variables
       block:
-        - name: Prompt for MySQL root password if not provided
+        - name: Prompt for database system if not provided
+          pause:
+            prompt: "Choose database system (mysql, postgres, sqlite)"
+            echo: yes
+          register: db_system_prompt
+          when: not db_system
+          
+        - name: Set database system from prompt
+          set_fact:
+            db_system: "{{ db_system_prompt.user_input }}"
+            install_mysql: "{{ db_system_prompt.user_input == 'mysql' }}"
+            install_postgres: "{{ db_system_prompt.user_input == 'postgres' }}"
+            install_sqlite: "{{ db_system_prompt.user_input == 'sqlite' }}"
+          when: not db_system and db_system_prompt.user_input is defined
+          
+        - name: Prompt for MySQL password if needed
           pause:
             prompt: "MySQL root password"
             echo: no
           register: mysql_prompt
-          when: not mysql_root_password
+          when: install_mysql | bool and not mysql_root_password
           
         - name: Set MySQL root password from prompt
           set_fact:
             mysql_root_password: "{{ mysql_prompt.user_input }}"
-          when: not mysql_root_password and mysql_prompt.user_input is defined
+          when: install_mysql | bool and not mysql_root_password and mysql_prompt.user_input is defined
           
-        - name: Prompt for PostgreSQL password if not provided
+        - name: Prompt for PostgreSQL password if needed
           pause:
             prompt: "PostgreSQL postgres user password"
             echo: no
           register: postgres_prompt
-          when: not postgres_password
+          when: install_postgres | bool and not postgres_password
           
         - name: Set PostgreSQL password from prompt
           set_fact:
             postgres_password: "{{ postgres_prompt.user_input }}"
-          when: not postgres_password and postgres_prompt.user_input is defined
+          when: install_postgres | bool and not postgres_password and postgres_prompt.user_input is defined
           
         - name: Prompt for PHP versions if not provided
           pause:
@@ -238,13 +259,14 @@
           - mysql-server
           - mysql-client
         state: present
-      when: ansible_os_family == "Debian"
+      when: install_mysql | bool and ansible_os_family == "Debian"
       
     - name: Start and enable MySQL
       service:
         name: mysql
         state: started
         enabled: yes
+      when: install_mysql | bool
         
     - name: Set MySQL root password
       mysql_user:
@@ -254,6 +276,7 @@
         host_all: yes
         state: present
       no_log: true
+      when: install_mysql | bool
       
     - name: Create .my.cnf file for root
       copy:
@@ -264,6 +287,7 @@
           password={{ mysql_root_password }}
         mode: '0600'
       no_log: true
+      when: install_mysql | bool
       
     # PostgreSQL Installation
     - name: Install PostgreSQL
@@ -273,13 +297,14 @@
           - postgresql-contrib
           - libpq-dev
         state: present
-      when: ansible_os_family == "Debian"
+      when: install_postgres | bool and ansible_os_family == "Debian"
       
     - name: Start and enable PostgreSQL
       service:
         name: postgresql
         state: started
         enabled: yes
+      when: install_postgres | bool
         
     - name: Set PostgreSQL postgres user password
       become: yes
@@ -288,6 +313,14 @@
         name: postgres
         password: "{{ postgres_password }}"
       no_log: true
+      when: install_postgres | bool
+      
+    # SQLite Installation
+    - name: Install SQLite
+      apt:
+        name: sqlite3
+        state: present
+      when: install_sqlite | bool and ansible_os_family == "Debian"
       
     # Node.js Installation
     - name: Set Node.js version
@@ -402,12 +435,14 @@
       register: mysql_status
       changed_when: false
       failed_when: false
+      when: install_mysql | bool
       
     - name: Get PostgreSQL status
       command: systemctl is-active postgresql
       register: postgresql_status
       changed_when: false
       failed_when: false
+      when: install_postgres | bool
     
     - name: Get PHP-FPM status for each version
       command: "systemctl is-active php{{ php_version }}-fpm"
@@ -475,8 +510,15 @@
           ====================================================
           🔧 Services Status:
             - Nginx: {{ nginx_status.stdout }}
+            {% if install_mysql | bool %}
             - MySQL: {{ mysql_status.stdout }}
+            {% endif %}
+            {% if install_postgres | bool %}
             - PostgreSQL: {{ postgresql_status.stdout }}
+            {% endif %}
+            {% if install_sqlite | bool %}
+            - SQLite: Installed
+            {% endif %}
             {% for result in php_status_results.results %}
             - PHP{{ php_version_list[loop.index0] }}-FPM: {{ result.stdout }}
             {% endfor %}
@@ -484,8 +526,12 @@
           🌐 Network Information:
             - Server IP: {{ server_ip.stdout.split()[0] }}
             - Web Port: 80 (HTTP)
+            {% if install_mysql | bool %}
             - MySQL Port: 3306
+            {% endif %}
+            {% if install_postgres | bool %}
             - PostgreSQL Port: 5432
+            {% endif %}
           {{ adminer_info }}
           {% if create_sample %}
           🚀 Sample Laravel Site:
@@ -494,6 +540,7 @@
             - URL: http://{{ sample_site_name }}.local/ (add to your hosts file)
             - Path: /var/www/{{ sample_site_name }}/
             - PHP Version: {{ sample_site_php_version }}
+            - Database: {{ db_system }}
           {% else %}
           ℹ️ No sample site was created during setup.
             - Run './setup-site.sh' to create a new Laravel site
