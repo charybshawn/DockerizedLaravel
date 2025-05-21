@@ -106,18 +106,24 @@
             postgres_password: "{{ postgres_prompt.user_input }}"
           when: install_postgres | bool and postgres_password == '' and postgres_prompt.user_input is defined
           
+        - name: Set initial PHP versions
+          set_fact:
+            php_versions: "{{ php_versions | default('8.1') }}"
+            php_version_list: "{{ php_versions.split() }}"
+          when: php_versions is not defined
+
         - name: Prompt for PHP versions if not provided
           pause:
             prompt: "PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
             echo: yes
           register: php_versions_prompt
-          when: not php_versions
+          when: php_versions is not defined
           
         - name: Set PHP versions from prompt
           set_fact:
             php_versions: "{{ php_versions_prompt.user_input }}"
             php_version_list: "{{ php_versions_prompt.user_input.split() }}"
-          when: not php_versions and php_versions_prompt.user_input is defined
+          when: php_versions_prompt.user_input is defined
           
         - name: Prompt for default PHP version if not provided
           pause:
