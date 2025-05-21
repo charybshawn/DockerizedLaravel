@@ -9,7 +9,6 @@
   
   vars:
     # Default values that can be overridden via command line
-    default_php_version: "{{ default_php_version | default('8.1') }}"
     create_sample_site: "{{ create_sample_site | default('no') }}"
     install_adminer: "{{ install_adminer | default('yes') }}"
     verbose_mode: "{{ verbose_mode | default(false) }}"
@@ -18,7 +17,6 @@
     create_sample: "{{ create_sample_site | lower == 'yes' }}"
     current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
     sample_site_name: "{{ sample_site_name | default('laravel') }}"
-    sample_site_php_version: "{{ default_php_version }}"
     adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
     
     # Database flags - these will be set after the prompt
@@ -123,17 +121,22 @@
             php_version_list: "{{ php_versions_prompt.user_input.split() }}"
           when: php_versions_prompt.user_input is defined
           
+        - name: Set initial default PHP version
+          set_fact:
+            default_php_version: "8.1"
+          when: default_php_version is not defined
+
         - name: Prompt for default PHP version if not provided
           pause:
             prompt: "Default PHP version to use"
             echo: yes
           register: default_php_prompt
-          when: not default_php_version
+          when: default_php_version is not defined
           
         - name: Set default PHP version from prompt
           set_fact:
             default_php_version: "{{ default_php_prompt.user_input }}"
-          when: not default_php_version and default_php_prompt.user_input is defined
+          when: default_php_prompt.user_input is defined
           
         - name: Prompt for sample site creation if not provided
           pause:
