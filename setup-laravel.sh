@@ -8,6 +8,115 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
+# Default values
+MYSQL_PASSWORD=""
+POSTGRES_PASSWORD=""
+PHP_VERSIONS="8.1"
+DEFAULT_PHP="8.1"
+CREATE_SAMPLE="no"
+INSTALL_ADMINER="yes"
+ADMINER_PASSWORD=""
+VERBOSE=false
+
+# Help message
+show_help() {
+    echo -e "${BLUE}Laravel Development Environment Setup${NC}"
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help                 Show this help message"
+    echo "  -m, --mysql-password       MySQL root password"
+    echo "  -p, --postgres-password    PostgreSQL postgres user password"
+    echo "  -v, --php-versions         PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
+    echo "  -d, --default-php          Default PHP version to use"
+    echo "  -s, --sample-site          Create a sample Laravel site (yes/no)"
+    echo "  -a, --adminer              Install Adminer database manager (yes/no)"
+    echo "  -w, --adminer-password     Adminer admin password"
+    echo "  -V, --verbose              Show detailed output"
+    echo ""
+    echo "Example:"
+    echo "  $0 -m 'mysqlpass' -p 'postgrespass' -v '8.1 8.2' -d 8.1 -s yes -a yes -w 'adminpass'"
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -m|--mysql-password)
+            MYSQL_PASSWORD="$2"
+            shift 2
+            ;;
+        -p|--postgres-password)
+            POSTGRES_PASSWORD="$2"
+            shift 2
+            ;;
+        -v|--php-versions)
+            PHP_VERSIONS="$2"
+            shift 2
+            ;;
+        -d|--default-php)
+            DEFAULT_PHP="$2"
+            shift 2
+            ;;
+        -s|--sample-site)
+            CREATE_SAMPLE="$2"
+            shift 2
+            ;;
+        -a|--adminer)
+            INSTALL_ADMINER="$2"
+            shift 2
+            ;;
+        -w|--adminer-password)
+            ADMINER_PASSWORD="$2"
+            shift 2
+            ;;
+        -V|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+# Check if required passwords are provided
+if [ -z "$MYSQL_PASSWORD" ]; then
+    echo -e "${RED}Error: MySQL root password is required${NC}"
+    echo "Use -m or --mysql-password to provide it"
+    exit 1
+fi
+
+if [ -z "$POSTGRES_PASSWORD" ]; then
+    echo -e "${RED}Error: PostgreSQL postgres user password is required${NC}"
+    echo "Use -p or --postgres-password to provide it"
+    exit 1
+fi
+
+# Build the ansible-playbook command
+CMD="ansible-playbook playbooks/setup_laravel_server.yml"
+
+# Add variables
+CMD="$CMD -e mysql_root_password='$MYSQL_PASSWORD'"
+CMD="$CMD -e postgres_password='$POSTGRES_PASSWORD'"
+CMD="$CMD -e php_versions='$PHP_VERSIONS'"
+CMD="$CMD -e default_php_version='$DEFAULT_PHP'"
+CMD="$CMD -e create_sample_site='$CREATE_SAMPLE'"
+CMD="$CMD -e install_adminer='$INSTALL_ADMINER'"
+if [ ! -z "$ADMINER_PASSWORD" ]; then
+    CMD="$CMD -e adminer_password='$ADMINER_PASSWORD'"
+fi
+CMD="$CMD -e verbose=$VERBOSE"
+
+# Run the playbook
+echo -e "${BLUE}Setting up Laravel development environment...${NC}"
+eval $CMD
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}Please run this script as root or with sudo${NC}"

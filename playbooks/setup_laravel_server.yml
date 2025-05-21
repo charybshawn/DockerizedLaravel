@@ -7,86 +7,126 @@
   become: yes
   gather_facts: yes
   
-  vars_prompt:
-    - name: mysql_root_password
-      prompt: "MySQL root password"
-      private: yes
-      
-    - name: postgres_password
-      prompt: "PostgreSQL postgres user password"
-      private: yes
-    
-    - name: php_versions
-      prompt: "PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
-      private: no
-      default: "{{ php_versions | default('8.1') }}"
-      
-    - name: default_php_version
-      prompt: "Default PHP version to use"
-      private: no
-      default: "{{ default_php_version | default('8.1') }}"
-      
-    - name: create_sample_site
-      prompt: "Create a sample Laravel site? (yes/no)"
-      private: no
-      default: "no"
-    
-    - name: install_adminer
-      prompt: "Install Adminer database manager? (yes/no)"
-      private: no
-      default: "yes"
-    
-    - name: adminer_password
-      prompt: "Adminer admin password (leave blank to use default)"
-      private: yes
-      default: ""
-  
   vars:
-    # Set a flag to determine if sample site should be created
+    # Default values that can be overridden via command line
+    mysql_root_password: "{{ mysql_root_password | default('') }}"
+    postgres_password: "{{ postgres_password | default('') }}"
+    php_versions: "{{ php_versions | default('8.1') }}"
+    default_php_version: "{{ default_php_version | default('8.1') }}"
+    create_sample_site: "{{ create_sample_site | default('no') }}"
+    install_adminer: "{{ install_adminer | default('yes') }}"
+    adminer_password: "{{ adminer_password | default('') }}"
+    verbose: "{{ verbose | default(false) | bool }}"
+    
+    # Derived variables
     create_sample: "{{ create_sample_site | lower == 'yes' }}"
-    # Get current user for Laravel site creation
     current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
-    # Parse PHP versions
     php_version_list: "{{ php_versions.split() }}"
-    # Define sample site defaults
-    sample_site_name: "laravel"
+    sample_site_name: "{{ sample_site_name | default('laravel') }}"
     sample_site_php_version: "{{ default_php_version }}"
-    # Set Adminer flags
-    install_adminer: "{{ install_adminer | default('yes') | lower }}"
-    adminer_enabled: "{{ install_adminer == 'yes' }}"
+    adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
     adminer_password_final: "{{ adminer_password | default('admin') }}"
       
   tasks:
     - name: Display current user
       debug:
         msg: "Setting up Laravel environment for user: {{ current_user }}"
-    
-    - name: Prompt for sample site details if creating one
+      when: verbose
+
+    - name: Prompt for missing required variables
       block:
-        - name: Ask for sample site name
+        - name: Prompt for MySQL root password if not provided
           pause:
-            prompt: "Enter sample site name (URL will be this.local)"
-            echo: yes
-          register: sample_site_name_input
-          when: create_sample
+            prompt: "MySQL root password"
+            echo: no
+          register: mysql_prompt
+          when: not mysql_root_password
           
-        - name: Set sample site name
+        - name: Set MySQL root password from prompt
           set_fact:
-            sample_site_name: "{{ sample_site_name_input.user_input | default('laravel') }}"
-          when: create_sample and sample_site_name_input.user_input is defined
+            mysql_root_password: "{{ mysql_prompt.user_input }}"
+          when: not mysql_root_password and mysql_prompt.user_input is defined
           
-        - name: Ask for sample site PHP version
+        - name: Prompt for PostgreSQL password if not provided
           pause:
-            prompt: "Enter PHP version for sample site"
-            echo: yes
-          register: sample_site_php_version_input
-          when: create_sample
+            prompt: "PostgreSQL postgres user password"
+            echo: no
+          register: postgres_prompt
+          when: not postgres_password
           
-        - name: Set sample site PHP version
+        - name: Set PostgreSQL password from prompt
           set_fact:
-            sample_site_php_version: "{{ sample_site_php_version_input.user_input | default(default_php_version) }}"
-          when: create_sample and sample_site_php_version_input.user_input is defined
-      when: create_sample
+            postgres_password: "{{ postgres_prompt.user_input }}"
+          when: not postgres_password and postgres_prompt.user_input is defined
+          
+        - name: Prompt for PHP versions if not provided
+          pause:
+            prompt: "PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
+            echo: yes
+          register: php_versions_prompt
+          when: not php_versions
+          
+        - name: Set PHP versions from prompt
+          set_fact:
+            php_versions: "{{ php_versions_prompt.user_input }}"
+            php_version_list: "{{ php_versions_prompt.user_input.split() }}"
+          when: not php_versions and php_versions_prompt.user_input is defined
+          
+        - name: Prompt for default PHP version if not provided
+          pause:
+            prompt: "Default PHP version to use"
+            echo: yes
+          register: default_php_prompt
+          when: not default_php_version
+          
+        - name: Set default PHP version from prompt
+          set_fact:
+            default_php_version: "{{ default_php_prompt.user_input }}"
+          when: not default_php_version and default_php_prompt.user_input is defined
+          
+        - name: Prompt for sample site creation if not provided
+          pause:
+            prompt: "Create a sample Laravel site? (yes/no)"
+            echo: yes
+          register: sample_site_prompt
+          when: not create_sample_site
+          
+        - name: Set sample site creation from prompt
+          set_fact:
+            create_sample_site: "{{ sample_site_prompt.user_input }}"
+            create_sample: "{{ sample_site_prompt.user_input | lower == 'yes' }}"
+          when: not create_sample_site and sample_site_prompt.user_input is defined
+          
+        - name: Prompt for Adminer installation if not provided
+          pause:
+            prompt: "Install Adminer database manager? (yes/no)"
+            echo: yes
+          register: adminer_prompt
+          when: not install_adminer
+          
+        - name: Set Adminer installation from prompt
+          set_fact:
+            install_adminer: "{{ adminer_prompt.user_input }}"
+            adminer_enabled: "{{ adminer_prompt.user_input | lower == 'yes' }}"
+          when: not install_adminer and adminer_prompt.user_input is defined
+          
+        - name: Prompt for Adminer password if not provided
+          pause:
+            prompt: "Adminer admin password (leave blank to use default)"
+            echo: no
+          register: adminer_pass_prompt
+          when: not adminer_password and adminer_enabled | bool
+          
+        - name: Set Adminer password from prompt
+          set_fact:
+            adminer_password: "{{ adminer_pass_prompt.user_input }}"
+            adminer_password_final: "{{ adminer_pass_prompt.user_input | default('admin') }}"
+          when: not adminer_password and adminer_enabled | bool and adminer_pass_prompt.user_input is defined
+          
+    - name: Display PHP versions being installed
+      debug:
+        msg: "Installing PHP versions: {{ php_version_list | join(', ') }}"
+      when: verbose
       
     - name: Update package cache
       apt:
@@ -122,10 +162,6 @@
         state: present
       when: ansible_distribution == "Ubuntu"
     
-    - name: Display PHP versions being installed
-      debug:
-        msg: "Installing PHP versions: {{ php_version_list | join(', ') }}"
-      
     - name: Install all requested PHP versions
       block:
         - name: Install PHP and extensions for each version
@@ -411,19 +447,6 @@
         state: present
       when: adminer_enabled | bool
       
-    # Set up server summary page
-    - name: Set up server summary page
-      template:
-        src: ../templates/server_info.j2
-        dest: /var/www/html/index.html
-        owner: root
-        group: root
-        mode: '0644'
-      vars:
-        server_name: "{{ ansible_hostname }}"
-        php_versions: "{{ php_version_list }}"
-        default_php_version: "{{ default_php_version }}"
-      
     # Display Adminer info in summary if enabled
     - name: Include Adminer info in summary if enabled
       set_fact:
@@ -434,6 +457,7 @@
             - Username: admin
             - Password: {{ adminer_password_final }}
             - Direct access: http://{{ server_ip.stdout.split()[0] }}:9000/
+            - Status: {{ 'Reachable' if nginx_status.stdout == 'active' else 'Not reachable' }}
       when: adminer_enabled | bool
       no_log: true
       
@@ -443,10 +467,10 @@
       when: not adminer_enabled | bool
       
     # Display summary
-    - name: Display environment summary with Adminer
+    - name: Display environment summary
       debug:
         msg: |
-          
+          {% if verbose %}
           📊 Environment Setup Summary:
           ====================================================
           🔧 Services Status:
@@ -477,6 +501,15 @@
           
           ====================================================
           Your Laravel development environment is ready!
+          {% else %}
+          ✅ Laravel development environment setup complete!
+          {% if adminer_enabled | bool %}
+          📊 Database Management: http://db.{{ ansible_hostname }}.local:9000/
+          {% endif %}
+          {% if create_sample %}
+          🚀 Sample site: http://{{ sample_site_name }}.local/
+          {% endif %}
+          {% endif %}
       
 
   handlers:
