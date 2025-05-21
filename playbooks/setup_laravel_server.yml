@@ -47,8 +47,13 @@
         - name: Prompt for database systems if not provided
           pause:
             prompt: |
-              Choose database systems (comma-separated, e.g., mysql,postgres,sqlite)
-              Available options: mysql, postgres, sqlite
+              Choose database systems (space-separated)
+              Available options: mysql postgres sqlite
+              Examples:
+              - mysql postgres    (for MySQL and PostgreSQL)
+              - mysql sqlite      (for MySQL and SQLite)
+              - postgres sqlite   (for PostgreSQL and SQLite)
+              - mysql postgres sqlite  (for all three)
             echo: yes
           register: db_systems_prompt
           when: db_systems == ''
@@ -56,16 +61,16 @@
         - name: Set database systems from prompt
           set_fact:
             db_systems: "{{ db_systems_prompt.user_input }}"
-            install_mysql: "{{ 'mysql' in db_systems_prompt.user_input.split(',') }}"
-            install_postgres: "{{ 'postgres' in db_systems_prompt.user_input.split(',') }}"
-            install_sqlite: "{{ 'sqlite' in db_systems_prompt.user_input.split(',') }}"
+            install_mysql: "{{ 'mysql' in db_systems_prompt.user_input.split() }}"
+            install_postgres: "{{ 'postgres' in db_systems_prompt.user_input.split() }}"
+            install_sqlite: "{{ 'sqlite' in db_systems_prompt.user_input.split() }}"
           when: db_systems == '' and db_systems_prompt.user_input is defined
           
         - name: Set database flags if db_systems is already set
           set_fact:
-            install_mysql: "{{ 'mysql' in db_systems.split(',') }}"
-            install_postgres: "{{ 'postgres' in db_systems.split(',') }}"
-            install_sqlite: "{{ 'sqlite' in db_systems.split(',') }}"
+            install_mysql: "{{ 'mysql' in db_systems.split() }}"
+            install_postgres: "{{ 'postgres' in db_systems.split() }}"
+            install_sqlite: "{{ 'sqlite' in db_systems.split() }}"
           when: db_systems != ''
           
         - name: Display selected database systems
