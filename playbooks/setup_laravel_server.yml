@@ -410,26 +410,43 @@
         
     # Composer Installation
     - name: Download Composer installer
-      get_url:
-        url: https://getcomposer.org/installer
-        dest: /tmp/composer-setup.php
-        mode: '0755'
-        timeout: 30
-        retries: 3
-        delay: 5
-      register: composer_download
-      until: composer_download is success
-      retries: 3
-      delay: 5
-      
-    - name: Download Composer installer (alternative method)
-      shell: curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
-      when: composer_download is failed
-      register: composer_curl
-      until: composer_curl is success
-      retries: 3
-      delay: 5
-      
+      block:
+        - name: Download Composer installer (attempt 1)
+          get_url:
+            url: https://getcomposer.org/installer
+            dest: /tmp/composer-setup.php
+            mode: '0755'
+            timeout: 30
+          register: composer_download
+          
+        - name: Download Composer installer (attempt 2)
+          get_url:
+            url: https://getcomposer.org/installer
+            dest: /tmp/composer-setup.php
+            mode: '0755'
+            timeout: 30
+          register: composer_download
+          when: composer_download is failed
+          
+        - name: Download Composer installer (attempt 3)
+          get_url:
+            url: https://getcomposer.org/installer
+            dest: /tmp/composer-setup.php
+            mode: '0755'
+            timeout: 30
+          register: composer_download
+          when: composer_download is failed
+          
+        - name: Download Composer installer (curl fallback)
+          shell: curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+          when: composer_download is failed
+          register: composer_curl
+          
+      rescue:
+        - name: Download Composer installer (final curl attempt)
+          shell: curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+          register: composer_curl
+          
     - name: Verify Composer installer was downloaded
       stat:
         path: /tmp/composer-setup.php
