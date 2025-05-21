@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to create a new Laravel site
-# Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch] [php_version] [auto_update]
+# Usage: ./setup-site.sh
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -15,14 +15,43 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Get site name
-if [ -z "$1" ]; then
-  echo -e "${RED}Error: Site name is required${NC}"
-  echo "Usage: ./setup-site.sh sitename [domain] [port] [git_repo] [git_branch] [php_version] [auto_update]"
-  exit 1
-fi
+# Interactive prompts for site setup
+echo -e "${BLUE}=== Laravel Site Setup ===${NC}"
+echo ""
 
-SITE_NAME=$1
+# Get site name
+while true; do
+  read -p "Enter site name (e.g., mysite): " SITE_NAME
+  if [ -z "$SITE_NAME" ]; then
+    echo -e "${RED}Site name cannot be empty. Please try again.${NC}"
+  else
+    break
+  fi
+done
+
+# Get domain
+read -p "Enter domain name (default: ${SITE_NAME}.local): " DOMAIN
+DOMAIN=${DOMAIN:-"${SITE_NAME}.local"}
+
+# Get port
+read -p "Enter port number (default: 80): " PORT
+PORT=${PORT:-"80"}
+
+# Get Git repository
+read -p "Enter Git repository URL (leave empty for new Laravel project): " GIT_REPO
+
+# If Git repository is provided, ask for branch
+if [ -n "$GIT_REPO" ]; then
+  read -p "Enter Git branch name (default: main): " GIT_BRANCH
+  GIT_BRANCH=${GIT_BRANCH:-"main"}
+  
+  # Ask about auto-updates
+  read -p "Enable automatic updates via cron? (yes/no) [no]: " AUTO_UPDATE
+  AUTO_UPDATE=${AUTO_UPDATE:-"no"}
+else
+  GIT_BRANCH="main"
+  AUTO_UPDATE="no"
+fi
 
 # Check if site directory already exists
 SITE_DIR="/var/www/${SITE_NAME}"
@@ -60,29 +89,6 @@ if [ -d "$SITE_DIR" ]; then
   fi
 fi
 
-# Get domain (default to sitename.local)
-if [ -z "$2" ]; then
-  DOMAIN="${SITE_NAME}.local"
-else
-  DOMAIN=$2
-fi
-
-# Get port (default to 80)
-if [ -z "$3" ]; then
-  PORT="80"
-else
-  PORT=$3
-fi
-
-# Get Git repository (optional)
-GIT_REPO=${4:-""}
-
-# Prompt for auto-update if it's not explicitly passed as an argument
-if [ -n "$GIT_REPO" ] && [ "$AUTO_UPDATE" != "yes" ] && [ "$AUTO_UPDATE" != "no" ]; then
-  read -p "Do you want to setup automatic Git updates via cron? (yes/no) [no]: " AUTO_UPDATE_INPUT
-  AUTO_UPDATE=${AUTO_UPDATE_INPUT:-"no"}
-fi
-
 # Check if using HTTPS or HTTP for GitHub
 if [[ "$GIT_REPO" == *"github.com"* ]]; then
   echo -e "${YELLOW}Warning: Using GitHub repository URLs.${NC}"
@@ -108,15 +114,6 @@ if [[ "$GIT_REPO" == *"github.com"* ]]; then
   fi
 fi
 
-# Get Git branch (default to main if repo is provided)
-GIT_BRANCH=${5:-"main"}
-
-# Get PHP version (default to 8.1)
-PHP_VERSION=${6:-""}
-
-# Set auto-update (default to no)
-AUTO_UPDATE=${7:-"no"}
-
 # List available PHP versions
 echo -e "${BLUE}Checking available PHP versions on this server...${NC}"
 AVAILABLE_PHP_VERSIONS=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$' | sort -V)
@@ -133,17 +130,15 @@ echo "$AVAILABLE_PHP_VERSIONS"
 CURRENT_PHP_VERSION=$(php -r 'echo PHP_VERSION;')
 echo -e "${BLUE}Current default PHP version: ${CURRENT_PHP_VERSION}${NC}"
 
-# Prompt for PHP version if not provided
-if [ -z "$PHP_VERSION" ]; then
-  echo -e "${BLUE}Please select a PHP version for this site:${NC}"
-  select PHP_VERSION in $AVAILABLE_PHP_VERSIONS; do
-    if [ -n "$PHP_VERSION" ]; then
-      break
-    else
-      echo -e "${RED}Invalid selection. Please try again.${NC}"
-    fi
-  done
-fi
+# Prompt for PHP version
+echo -e "${BLUE}Please select a PHP version for this site:${NC}"
+select PHP_VERSION in $AVAILABLE_PHP_VERSIONS; do
+  if [ -n "$PHP_VERSION" ]; then
+    break
+  else
+    echo -e "${RED}Invalid selection. Please try again.${NC}"
+  fi
+done
 
 # Validate the selected PHP version
 if ! echo "$AVAILABLE_PHP_VERSIONS" | grep -q "$PHP_VERSION"; then
