@@ -9,7 +9,6 @@
   
   vars:
     # Default values that can be overridden via command line
-    php_versions: "{{ php_versions | default('8.1') }}"
     default_php_version: "{{ default_php_version | default('8.1') }}"
     create_sample_site: "{{ create_sample_site | default('no') }}"
     install_adminer: "{{ install_adminer | default('yes') }}"
@@ -18,7 +17,6 @@
     # Derived variables
     create_sample: "{{ create_sample_site | lower == 'yes' }}"
     current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
-    php_version_list: "{{ php_versions.split() }}"
     sample_site_name: "{{ sample_site_name | default('laravel') }}"
     sample_site_php_version: "{{ default_php_version }}"
     adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
@@ -108,8 +106,8 @@
           
         - name: Set initial PHP versions
           set_fact:
-            php_versions: "{{ php_versions | default('8.1') }}"
-            php_version_list: "{{ php_versions.split() }}"
+            php_versions: "8.1"
+            php_version_list: ["8.1"]
           when: php_versions is not defined
 
         - name: Prompt for PHP versions if not provided
