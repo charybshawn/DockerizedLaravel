@@ -28,10 +28,10 @@
     adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
     adminer_password_final: "{{ adminer_password | default('admin') }}"
     
-    # Database flags
-    install_mysql: "{{ db_system == 'mysql' }}"
-    install_postgres: "{{ db_system == 'postgres' }}"
-    install_sqlite: "{{ db_system == 'sqlite' }}"
+    # Database flags - these will be set after the prompt
+    install_mysql: false
+    install_postgres: false
+    install_sqlite: false
       
   tasks:
     - name: Display current user
@@ -46,7 +46,7 @@
             prompt: "Choose database system (mysql, postgres, sqlite)"
             echo: yes
           register: db_system_prompt
-          when: not db_system
+          when: db_system == ''
           
         - name: Set database system from prompt
           set_fact:
@@ -54,7 +54,14 @@
             install_mysql: "{{ db_system_prompt.user_input == 'mysql' }}"
             install_postgres: "{{ db_system_prompt.user_input == 'postgres' }}"
             install_sqlite: "{{ db_system_prompt.user_input == 'sqlite' }}"
-          when: not db_system and db_system_prompt.user_input is defined
+          when: db_system == '' and db_system_prompt.user_input is defined
+          
+        - name: Set database flags if db_system is already set
+          set_fact:
+            install_mysql: "{{ db_system == 'mysql' }}"
+            install_postgres: "{{ db_system == 'postgres' }}"
+            install_sqlite: "{{ db_system == 'sqlite' }}"
+          when: db_system != ''
           
         - name: Prompt for MySQL password if needed
           pause:
