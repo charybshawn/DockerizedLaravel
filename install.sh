@@ -49,8 +49,8 @@ if ! command -v ansible &> /dev/null; then
 fi
 
 # Check if the playbook exists
-if [ ! -f "playbook.yml" ]; then
-    echo "playbook.yml not found in the current directory."
+if [ ! -f "playbooks/setup_laravel_server.yml" ]; then
+    echo "playbooks/setup_laravel_server.yml not found in the current directory."
     exit 1
 fi
 
@@ -67,7 +67,7 @@ fi
 
 # Run the Ansible playbook
 echo "Running Ansible playbook..."
-ansible-playbook playbook.yml $VERBOSE
+ansible-playbook playbooks/setup_laravel_server.yml $VERBOSE
 
 # Check if the playbook execution was successful
 if [ $? -eq 0 ]; then
