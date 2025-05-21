@@ -245,6 +245,36 @@
         - name: Set default PHP version alternative priority
           shell: update-alternatives --set php /usr/bin/php{{ default_php_version }}
           ignore_errors: yes
+
+        - name: Ensure PHP-FPM configuration directories exist
+          file:
+            path: "/etc/php/{{ item }}/fpm/pool.d"
+            state: directory
+            mode: '0755'
+          loop: "{{ php_version_list }}"
+          loop_control:
+            loop_var: item
+
+        - name: Create PHP-FPM www.conf if it doesn't exist
+          copy:
+            dest: "/etc/php/{{ item }}/fpm/pool.d/www.conf"
+            content: |
+              [www]
+              user = www-data
+              group = www-data
+              listen = /run/php/php{{ item }}-fpm.sock
+              listen.owner = www-data
+              listen.group = www-data
+              pm = dynamic
+              pm.max_children = 50
+              pm.start_servers = 5
+              pm.min_spare_servers = 5
+              pm.max_spare_servers = 35
+            mode: '0644'
+          loop: "{{ php_version_list }}"
+          loop_control:
+            loop_var: item
+          when: ansible_os_family == "Debian"
           
         - name: Configure PHP-FPM for better performance for each version
           lineinfile:
