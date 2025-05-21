@@ -236,6 +236,7 @@
               - php{{ php_version }}-soap
               - php{{ php_version }}-xdebug
               - php{{ php_version }}-redis
+              - php{{ php_version }}-phar
             state: present
           loop: "{{ php_version_list }}"
           loop_control:
