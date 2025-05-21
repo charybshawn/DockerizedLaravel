@@ -36,7 +36,7 @@
 
     - name: Set initial variables
       set_fact:
-        db_system: "{{ db_system | default('') }}"
+        db_systems: "{{ db_systems | default('') }}"
         mysql_root_password: "{{ mysql_root_password | default('') }}"
         postgres_password: "{{ postgres_password | default('') }}"
         adminer_password: "{{ adminer_password | default('') }}"
@@ -44,27 +44,38 @@
 
     - name: Prompt for missing required variables
       block:
-        - name: Prompt for database system if not provided
+        - name: Prompt for database systems if not provided
           pause:
-            prompt: "Choose database system (mysql, postgres, sqlite)"
+            prompt: |
+              Choose database systems (comma-separated, e.g., mysql,postgres,sqlite)
+              Available options: mysql, postgres, sqlite
             echo: yes
-          register: db_system_prompt
-          when: db_system == ''
+          register: db_systems_prompt
+          when: db_systems == ''
           
-        - name: Set database system from prompt
+        - name: Set database systems from prompt
           set_fact:
-            db_system: "{{ db_system_prompt.user_input }}"
-            install_mysql: "{{ db_system_prompt.user_input == 'mysql' }}"
-            install_postgres: "{{ db_system_prompt.user_input == 'postgres' }}"
-            install_sqlite: "{{ db_system_prompt.user_input == 'sqlite' }}"
-          when: db_system == '' and db_system_prompt.user_input is defined
+            db_systems: "{{ db_systems_prompt.user_input }}"
+            install_mysql: "{{ 'mysql' in db_systems_prompt.user_input.split(',') }}"
+            install_postgres: "{{ 'postgres' in db_systems_prompt.user_input.split(',') }}"
+            install_sqlite: "{{ 'sqlite' in db_systems_prompt.user_input.split(',') }}"
+          when: db_systems == '' and db_systems_prompt.user_input is defined
           
-        - name: Set database flags if db_system is already set
+        - name: Set database flags if db_systems is already set
           set_fact:
-            install_mysql: "{{ db_system == 'mysql' }}"
-            install_postgres: "{{ db_system == 'postgres' }}"
-            install_sqlite: "{{ db_system == 'sqlite' }}"
-          when: db_system != ''
+            install_mysql: "{{ 'mysql' in db_systems.split(',') }}"
+            install_postgres: "{{ 'postgres' in db_systems.split(',') }}"
+            install_sqlite: "{{ 'sqlite' in db_systems.split(',') }}"
+          when: db_systems != ''
+          
+        - name: Display selected database systems
+          debug:
+            msg: |
+              Selected database systems:
+              - MySQL: {{ install_mysql | bool }}
+              - PostgreSQL: {{ install_postgres | bool }}
+              - SQLite: {{ install_sqlite | bool }}
+          when: verbose_mode | bool
           
         - name: Prompt for MySQL password if needed
           pause:
@@ -402,6 +413,20 @@
             - storage
             - bootstrap/cache
           
+        - name: Configure Laravel database connections
+          template:
+            src: ../templates/laravel_database.j2
+            dest: "/var/www/{{ sample_site_name }}/config/database.php"
+            owner: "{{ current_user }}"
+            group: www-data
+            mode: '0644'
+          vars:
+            mysql_enabled: "{{ install_mysql | bool }}"
+            postgres_enabled: "{{ install_postgres | bool }}"
+            sqlite_enabled: "{{ install_sqlite | bool }}"
+            mysql_password: "{{ mysql_root_password }}"
+            postgres_password: "{{ postgres_password }}"
+          
         - name: Create Nginx server block for Laravel
           template:
             src: ../templates/laravel_nginx.j2
@@ -550,7 +575,7 @@
             - URL: http://{{ sample_site_name }}.local/ (add to your hosts file)
             - Path: /var/www/{{ sample_site_name }}/
             - PHP Version: {{ sample_site_php_version }}
-            - Database: {{ db_system }}
+            - Database: {{ db_systems }}
           {% else %}
           ℹ️ No sample site was created during setup.
             - Run './setup-site.sh' to create a new Laravel site
