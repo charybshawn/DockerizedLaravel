@@ -11,10 +11,13 @@ This is an Ansible-based Laravel development environment setup tool. It automate
 - Multiple Laravel site management
 - Git repository integration
 - Custom port configuration for sites
-- Database setup and configuration
+- Database setup and configuration (MySQL and PostgreSQL)
 - Adminer database management web interface
 - Easy-to-use shell scripts for common tasks
 - Rollback functionality for clean uninstallation
+- Smart PHP version detection and compatibility checking
+- Automatic database system selection and configuration
+- Enhanced error handling and validation
 
 ## Prerequisites
 
@@ -100,8 +103,15 @@ Where:
 - `80` - The port number (use any available port)
 - `https://github.com/username/laravel-project.git` - Git repository URL
 - `main` - Branch name (optional, defaults to 'main')
-- `8.1` - PHP version (optional, defaults to '8.1')
+- `8.1` - PHP version (optional, will prompt if not specified)
 - `yes` - Enable auto-updates via cron (optional, defaults to 'no')
+
+The script will:
+- Check PHP version requirements from composer.json
+- Validate PHP version compatibility
+- Offer to switch to a compatible PHP version if needed
+- Handle database configuration automatically
+- Set up proper permissions and environment
 
 ### Working with GitHub Repositories
 
@@ -144,6 +154,7 @@ vars:
       port: 80
       db_connection: mysql
       db_database: site1_db
+      php_version: 8.1
       
     - name: site2
       domain: site2.local
@@ -161,6 +172,13 @@ Then run:
 ```bash
 ansible-playbook playbooks/manage_laravel_sites.yml
 ```
+
+Each site can have its own:
+- PHP version
+- Database system (MySQL or PostgreSQL)
+- Git repository and branch
+- Port configuration
+- Auto-update settings
 
 ## Directory Structure
 
@@ -188,6 +206,8 @@ Common issues:
 3. **Database connection issues**: Check your .env file configuration
 4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service
 5. **Git authentication failures**: For private GitHub repositories, use SSH URLs (git@github.com:username/repo.git) instead of HTTPS URLs
+6. **PHP version conflicts**: The script will detect and warn about PHP version incompatibilities
+7. **Database system issues**: Make sure the selected database system is installed and running
 
 ## Database Management
 
