@@ -14,6 +14,7 @@ This is an Ansible-based Laravel development environment setup tool. It automate
 - Database setup and configuration
 - Adminer database management web interface
 - Easy-to-use shell scripts for common tasks
+- Rollback functionality for clean uninstallation
 
 ## Prerequisites
 
@@ -29,12 +30,34 @@ This is an Ansible-based Laravel development environment setup tool. It automate
    cd laravel-dev-environment
    ```
 
-2. Run the setup script:
+2. Run the installation script:
    ```bash
-   sudo ./setup-laravel.sh
+   sudo ./install.sh
+   ```
+
+   Additional options:
+   ```bash
+   sudo ./install.sh -v              # Run with verbose output
+   sudo ./install.sh -r              # Run rollback first, then install
+   sudo ./install.sh -v -r           # Run rollback first with verbose output
+   sudo ./install.sh --help          # Show all available options
    ```
 
 This will install all necessary dependencies and configure the server for Laravel development.
+
+## Uninstallation
+
+To completely remove the Laravel development environment and all its components:
+
+```bash
+sudo ./rollback.sh
+```
+
+This will:
+- Remove all installed packages
+- Delete configuration files
+- Remove created directories
+- Clean up system settings
 
 ## Setting Up a Laravel Site
 
@@ -144,7 +167,8 @@ ansible-playbook playbooks/manage_laravel_sites.yml
 - `playbooks/` - Ansible playbooks
 - `roles/` - Ansible roles
 - `templates/` - Configuration templates
-- `setup-laravel.sh` - Main setup script
+- `install.sh` - Main installation script
+- `rollback.sh` - Uninstallation script
 - `setup-site.sh` - Site creation script
 
 ## Customization
@@ -159,7 +183,7 @@ You can customize various aspects of the environment:
 
 Common issues:
 
-1. **Permission problems**: Run the setup script with sudo
+1. **Permission problems**: Run the installation script with sudo
 2. **Domain not accessible**: Add the domain to your local hosts file
 3. **Database connection issues**: Check your .env file configuration
 4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service
@@ -196,4 +220,4 @@ You can customize Adminer by modifying the settings in `playbooks/setup_laravel_
 - Changing the authentication credentials
 - Restricting access by IP address
 - Enabling/disabling specific features
-- Changing the theme 
+- Changing the theme
