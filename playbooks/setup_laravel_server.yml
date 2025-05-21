@@ -9,13 +9,10 @@
   
   vars:
     # Default values that can be overridden via command line
-    mysql_root_password: "{{ mysql_root_password | default('') }}"
-    postgres_password: "{{ postgres_password | default('') }}"
     php_versions: "{{ php_versions | default('8.1') }}"
     default_php_version: "{{ default_php_version | default('8.1') }}"
     create_sample_site: "{{ create_sample_site | default('no') }}"
     install_adminer: "{{ install_adminer | default('yes') }}"
-    adminer_password: "{{ adminer_password | default('') }}"
     verbose_mode: "{{ verbose_mode | default(false) }}"
     
     # Derived variables
@@ -25,7 +22,6 @@
     sample_site_name: "{{ sample_site_name | default('laravel') }}"
     sample_site_php_version: "{{ default_php_version }}"
     adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
-    adminer_password_final: "{{ adminer_password | default('admin') }}"
     
     # Database flags - these will be set after the prompt
     install_mysql: false
@@ -38,9 +34,13 @@
         msg: "Setting up Laravel environment for user: {{ current_user }}"
       when: verbose_mode | bool
 
-    - name: Set initial database system
+    - name: Set initial variables
       set_fact:
         db_system: "{{ db_system | default('') }}"
+        mysql_root_password: "{{ mysql_root_password | default('') }}"
+        postgres_password: "{{ postgres_password | default('') }}"
+        adminer_password: "{{ adminer_password | default('') }}"
+        adminer_password_final: "{{ adminer_password | default('admin') }}"
 
     - name: Prompt for missing required variables
       block:
@@ -71,24 +71,24 @@
             prompt: "MySQL root password"
             echo: no
           register: mysql_prompt
-          when: install_mysql | bool and not mysql_root_password
+          when: install_mysql | bool and mysql_root_password == ''
           
         - name: Set MySQL root password from prompt
           set_fact:
             mysql_root_password: "{{ mysql_prompt.user_input }}"
-          when: install_mysql | bool and not mysql_root_password and mysql_prompt.user_input is defined
+          when: install_mysql | bool and mysql_root_password == '' and mysql_prompt.user_input is defined
           
         - name: Prompt for PostgreSQL password if needed
           pause:
             prompt: "PostgreSQL postgres user password"
             echo: no
           register: postgres_prompt
-          when: install_postgres | bool and not postgres_password
+          when: install_postgres | bool and postgres_password == ''
           
         - name: Set PostgreSQL password from prompt
           set_fact:
             postgres_password: "{{ postgres_prompt.user_input }}"
-          when: install_postgres | bool and not postgres_password and postgres_prompt.user_input is defined
+          when: install_postgres | bool and postgres_password == '' and postgres_prompt.user_input is defined
           
         - name: Prompt for PHP versions if not provided
           pause:
