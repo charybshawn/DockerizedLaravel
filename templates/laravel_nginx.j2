@@ -10,6 +10,20 @@ server {
 
     charset utf-8;
 
+    # Handle Vite assets with proper caching
+    location ^~ /build/ {
+        expires max;
+        add_header Cache-Control "public, immutable";
+        try_files $uri $uri/ =404;
+    }
+
+    # Handle other static assets
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+        try_files $uri $uri/ =404;
+    }
+
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
