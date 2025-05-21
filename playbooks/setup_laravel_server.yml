@@ -531,6 +531,23 @@
             sqlite_enabled: "{{ install_sqlite | bool }}"
             mysql_password: "{{ mysql_root_password }}"
             postgres_password: "{{ postgres_password }}"
+            
+        - name: Configure Laravel .env file
+          template:
+            src: ../templates/laravel_env.j2
+            dest: "/var/www/{{ sample_site_name }}/.env"
+            owner: "{{ current_user }}"
+            group: www-data
+            mode: '0644'
+          vars:
+            app_name: "{{ sample_site_name }}"
+            app_url: "http://{{ sample_site_name }}.local"
+            db_connection: "{{ 'mysql' if install_mysql | bool else 'pgsql' if install_postgres | bool else 'sqlite' }}"
+            db_host: "127.0.0.1"
+            db_port: "{{ '3306' if install_mysql | bool else '5432' if install_postgres | bool else '' }}"
+            db_database: "{{ sample_site_name }}"
+            db_username: "{{ 'root' if install_mysql | bool else 'postgres' if install_postgres | bool else '' }}"
+            db_password: "{{ mysql_root_password if install_mysql | bool else postgres_password if install_postgres | bool else '' }}"
           
         - name: Create Nginx server block for Laravel
           template:
@@ -542,7 +559,7 @@
           vars:
             server_name: "{{ sample_site_name }}.local"
             root_directory: "/var/www/{{ sample_site_name }}/public"
-            php_version: "{{ sample_site_php_version }}"
+            php_version: "{{ default_php_version }}"
           
         - name: Enable Nginx server block
           file:
