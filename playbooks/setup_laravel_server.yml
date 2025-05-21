@@ -411,41 +411,48 @@
     # Composer Installation
     - name: Download Composer installer
       block:
-        - name: Download Composer installer (attempt 1)
+        - name: Try primary Composer download URL
           get_url:
             url: https://getcomposer.org/installer
             dest: /tmp/composer-setup.php
             mode: '0755'
             timeout: 30
+            validate_certs: yes
           register: composer_download
           
-        - name: Download Composer installer (attempt 2)
+        - name: Try backup Composer download URL
           get_url:
-            url: https://getcomposer.org/installer
+            url: https://raw.githubusercontent.com/composer/getcomposer.org/main/web/installer
             dest: /tmp/composer-setup.php
             mode: '0755'
             timeout: 30
+            validate_certs: yes
           register: composer_download
           when: composer_download is failed
           
-        - name: Download Composer installer (attempt 3)
+        - name: Try GitHub mirror URL
           get_url:
-            url: https://getcomposer.org/installer
+            url: https://raw.githubusercontent.com/composer/getcomposer.org/main/web/installer
             dest: /tmp/composer-setup.php
             mode: '0755'
             timeout: 30
+            validate_certs: yes
           register: composer_download
           when: composer_download is failed
           
-        - name: Download Composer installer (curl fallback)
-          shell: curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
-          when: composer_download is failed
+        - name: Try curl download as fallback
+          shell: |
+            curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php || \
+            curl -sS https://raw.githubusercontent.com/composer/getcomposer.org/main/web/installer -o /tmp/composer-setup.php
           register: composer_curl
+          when: composer_download is failed
           
       rescue:
-        - name: Download Composer installer (final curl attempt)
-          shell: curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
-          register: composer_curl
+        - name: Final fallback to wget
+          shell: |
+            wget -O /tmp/composer-setup.php https://getcomposer.org/installer || \
+            wget -O /tmp/composer-setup.php https://raw.githubusercontent.com/composer/getcomposer.org/main/web/installer
+          register: composer_wget
           
     - name: Verify Composer installer was downloaded
       stat:
@@ -454,7 +461,12 @@
       
     - name: Fail if Composer installer download failed
       fail:
-        msg: "Failed to download Composer installer after multiple attempts"
+        msg: |
+          Failed to download Composer installer after multiple attempts.
+          Please check your network connectivity and try again.
+          You can also try downloading it manually from:
+          - https://getcomposer.org/installer
+          - https://raw.githubusercontent.com/composer/getcomposer.org/main/web/installer
       when: not composer_file.stat.exists
         
     - name: Install Composer globally
