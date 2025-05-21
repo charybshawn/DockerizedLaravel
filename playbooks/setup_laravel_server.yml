@@ -103,13 +103,13 @@
           
         - name: Set initial PHP versions
           set_fact:
-            php_versions: "8.1"
-            php_version_list: ["8.1"]
+            php_versions: "8.4"
+            php_version_list: ["8.4"]
           when: php_versions is not defined
 
         - name: Prompt for PHP versions if not provided
           pause:
-            prompt: "PHP versions to install (space-separated, e.g., '8.1 8.2 8.3')"
+            prompt: "PHP versions to install (space-separated, e.g., '8.4 8.3 8.2')"
             echo: yes
           register: php_versions_prompt
           when: php_versions is not defined
@@ -122,7 +122,7 @@
           
         - name: Set initial default PHP version
           set_fact:
-            default_php_version: "8.1"
+            default_php_version: "8.4"
           when: default_php_version is not defined
 
         - name: Prompt for default PHP version if not provided
@@ -246,6 +246,15 @@
         - name: Set default PHP version alternative priority
           shell: update-alternatives --set php /usr/bin/php{{ default_php_version }}
           ignore_errors: yes
+
+        - name: Start and enable PHP-FPM for each version
+          service:
+            name: "php{{ item }}-fpm"
+            state: started
+            enabled: yes
+          loop: "{{ php_version_list }}"
+          loop_control:
+            loop_var: item
 
         - name: Ensure PHP-FPM configuration directories exist
           file:
