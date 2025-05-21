@@ -17,7 +17,7 @@
     create_sample_site: "{{ create_sample_site | default('no') }}"
     install_adminer: "{{ install_adminer | default('yes') }}"
     adminer_password: "{{ adminer_password | default('') }}"
-    verbose: "{{ verbose | default(false) | bool }}"
+    verbose_mode: "{{ verbose_mode | default(false) }}"
     
     # Derived variables
     create_sample: "{{ create_sample_site | lower == 'yes' }}"
@@ -37,7 +37,7 @@
     - name: Display current user
       debug:
         msg: "Setting up Laravel environment for user: {{ current_user }}"
-      when: verbose
+      when: verbose_mode | bool
 
     - name: Prompt for missing required variables
       block:
@@ -147,7 +147,7 @@
     - name: Display PHP versions being installed
       debug:
         msg: "Installing PHP versions: {{ php_version_list | join(', ') }}"
-      when: verbose
+      when: verbose_mode | bool
       
     - name: Update package cache
       apt:
@@ -505,7 +505,7 @@
     - name: Display environment summary
       debug:
         msg: |
-          {% if verbose %}
+          {% if verbose_mode | bool %}
           📊 Environment Setup Summary:
           ====================================================
           🔧 Services Status:

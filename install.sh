@@ -16,7 +16,7 @@ show_help() {
     echo "  $0                    # Run with minimal output"
     echo "  $0 -v                 # Run with verbose output"
     echo "  $0 -r                 # Run rollback first, then install with minimal output"
-    echo "  $0 -v -r              # Run rollback first, then install with verbose output"
+    echo "  $0 -v -r              # Run rollback first with verbose output"
 }
 
 # Parse command line arguments
@@ -67,7 +67,11 @@ fi
 
 # Run the Ansible playbook
 echo "Running Ansible playbook..."
-ansible-playbook playbooks/setup_laravel_server.yml $VERBOSE
+if [ -n "$VERBOSE" ]; then
+    ansible-playbook playbooks/setup_laravel_server.yml -e "verbose_mode=true" $VERBOSE
+else
+    ansible-playbook playbooks/setup_laravel_server.yml -e "verbose_mode=false" $VERBOSE
+fi
 
 # Check if the playbook execution was successful
 if [ $? -eq 0 ]; then
