@@ -69,44 +69,38 @@ This will:
 The simplest way to create a new Laravel site is using the provided `setup-site.sh` script:
 
 ```bash
-sudo ./setup-site.sh mysite example.local
+sudo ./setup-site.sh
 ```
 
+The script will guide you through an interactive process to:
+- Enter site name
+- Configure domain name (defaults to sitename.local)
+- Set port number (defaults to 80)
+- Choose PHP version
+- Optionally set up from a Git repository
+- Configure automatic updates
+
 This will:
-- Create a new site directory at `/var/www/mysite`
-- Install a fresh Laravel project
-- Create a MySQL database named `mysite`
-- Configure Nginx with the domain `example.local` on port 80
+- Create a new site directory at `/var/www/sitename`
+- Install a fresh Laravel project or clone from Git
+- Create a database
+- Configure Nginx
 - Set up proper permissions
 
 ### Setting Up a Site with Custom Port
 
-You can specify a custom port for your site:
-
-```bash
-sudo ./setup-site.sh mysite example.local 8080
-```
-
-This will configure Nginx to listen on port 8080 instead of the default port 80.
+When running the script, you'll be prompted for the port number. Simply enter your desired port (e.g., 8080) when asked.
 
 ### Cloning an Existing Laravel Project
 
-To set up a site from an existing Git repository:
+When running the script, you'll be prompted for a Git repository URL. Enter the full URL when asked:
 
-```bash
-sudo ./setup-site.sh mysite example.local 80 https://github.com/username/laravel-project.git main 8.1 yes
+```
+Enter Git repository URL (leave empty for new Laravel project): https://github.com/username/laravel-project.git
 ```
 
-Where:
-- `mysite` - The site name (used for directory and default database name)
-- `example.local` - The domain name
-- `80` - The port number (use any available port)
-- `https://github.com/username/laravel-project.git` - Git repository URL
-- `main` - Branch name (optional, defaults to 'main')
-- `8.1` - PHP version (optional, will prompt if not specified)
-- `yes` - Enable auto-updates via cron (optional, defaults to 'no')
-
-The script will:
+The script will then:
+- Ask for the branch name (defaults to 'main')
 - Check PHP version requirements from composer.json
 - Validate PHP version compatibility
 - Offer to switch to a compatible PHP version if needed
@@ -120,18 +114,18 @@ For GitHub repositories, you have two options:
 1. **Public Repositories**: The script will detect public repositories and attempt to clone them anonymously.
 
 2. **Private Repositories**: For private repositories, use SSH URLs instead of HTTPS:
-   ```bash
-   sudo ./setup-site.sh mysite example.local 80 git@github.com:username/private-repo.git main
+   ```
+   Enter Git repository URL: git@github.com:username/private-repo.git
    ```
 
    Make sure your SSH keys are properly set up on the server with access to the repository.
 
 ### Automatic Updates via Cron
 
-For Git-based projects, you can enable automatic updates to keep your site up-to-date with the latest changes from the repository:
+When setting up a Git-based project, you'll be asked if you want to enable automatic updates:
 
-```bash
-sudo ./setup-site.sh mysite example.local 80 git@github.com:username/private-repo.git main 8.1 yes
+```
+Enable automatic updates via cron? (yes/no) [no]:
 ```
 
 When auto-update is enabled:
