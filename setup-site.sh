@@ -112,7 +112,7 @@ fi
 GIT_BRANCH=${5:-"main"}
 
 # Get PHP version (default to 8.1)
-PHP_VERSION=${6:-"8.1"}
+PHP_VERSION=${6:-""}
 
 # Set auto-update (default to no)
 AUTO_UPDATE=${7:-"no"}
@@ -128,6 +128,22 @@ fi
 
 echo -e "${BLUE}Available PHP versions:${NC}"
 echo "$AVAILABLE_PHP_VERSIONS"
+
+# Get current default PHP version
+CURRENT_PHP_VERSION=$(php -r 'echo PHP_VERSION;')
+echo -e "${BLUE}Current default PHP version: ${CURRENT_PHP_VERSION}${NC}"
+
+# Prompt for PHP version if not provided
+if [ -z "$PHP_VERSION" ]; then
+  echo -e "${BLUE}Please select a PHP version for this site:${NC}"
+  select PHP_VERSION in $AVAILABLE_PHP_VERSIONS; do
+    if [ -n "$PHP_VERSION" ]; then
+      break
+    else
+      echo -e "${RED}Invalid selection. Please try again.${NC}"
+    fi
+  done
+fi
 
 # Validate the selected PHP version
 if ! echo "$AVAILABLE_PHP_VERSIONS" | grep -q "$PHP_VERSION"; then
@@ -146,12 +162,6 @@ if ! echo "$AVAILABLE_PHP_VERSIONS" | grep -q "$PHP_VERSION"; then
   fi
 fi
 
-# Check current PHP version
-CURRENT_PHP_VERSION=$(php -r 'echo PHP_VERSION;')
-CURRENT_PHP_MAJOR=$(echo $CURRENT_PHP_VERSION | cut -d. -f1)
-CURRENT_PHP_MINOR=$(echo $CURRENT_PHP_VERSION | cut -d. -f2)
-
-echo -e "${BLUE}Current default PHP version: ${CURRENT_PHP_VERSION}${NC}"
 echo -e "${BLUE}Selected PHP version for this site: ${PHP_VERSION}${NC}"
 
 # Database type - default to MySQL
