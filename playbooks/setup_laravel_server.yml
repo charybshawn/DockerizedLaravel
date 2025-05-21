@@ -19,20 +19,23 @@
         msg: "Setting up Laravel environment for user: {{ current_user }}"
       when: verbose_mode | bool
 
-    - name: Set initial variables
+    - name: Set initial database variables
       set_fact:
-        db_systems: "{{ db_systems | default('') }}"
-        mysql_root_password: "{{ mysql_root_password | default('') }}"
-        postgres_password: "{{ postgres_password | default('') }}"
-        adminer_password: "{{ adminer_password | default('') }}"
-        adminer_password_final: "{{ adminer_password | default('admin') }}"
-        create_sample_site: "{{ create_sample_site | default('no') }}"
-        create_sample: "{{ create_sample_site | lower == 'yes' }}"
-        install_adminer: "{{ install_adminer | default('yes') }}"
-        adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
-        verbose_mode: "{{ verbose_mode | default(false) }}"
+        db_systems: ""
+        mysql_root_password: ""
+        postgres_password: ""
+        adminer_password: ""
+        adminer_password_final: "admin"
+
+    - name: Set initial configuration variables
+      set_fact:
+        create_sample_site: "no"
+        create_sample: false
+        install_adminer: "yes"
+        adminer_enabled: true
+        verbose_mode: false
         current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
-        sample_site_name: "{{ sample_site_name | default('laravel') }}"
+        sample_site_name: "laravel"
 
     - name: Prompt for missing required variables
       block:
