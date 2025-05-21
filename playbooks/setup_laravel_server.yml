@@ -8,17 +8,6 @@
   gather_facts: yes
   
   vars:
-    # Default values that can be overridden via command line
-    create_sample_site: "{{ create_sample_site | default('no') }}"
-    install_adminer: "{{ install_adminer | default('yes') }}"
-    verbose_mode: "{{ verbose_mode | default(false) }}"
-    
-    # Derived variables
-    create_sample: "{{ create_sample_site | lower == 'yes' }}"
-    current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
-    sample_site_name: "{{ sample_site_name | default('laravel') }}"
-    adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
-    
     # Database flags - these will be set after the prompt
     install_mysql: false
     install_postgres: false
@@ -37,6 +26,13 @@
         postgres_password: "{{ postgres_password | default('') }}"
         adminer_password: "{{ adminer_password | default('') }}"
         adminer_password_final: "{{ adminer_password | default('admin') }}"
+        create_sample_site: "{{ create_sample_site | default('no') }}"
+        create_sample: "{{ create_sample_site | lower == 'yes' }}"
+        install_adminer: "{{ install_adminer | default('yes') }}"
+        adminer_enabled: "{{ install_adminer | lower == 'yes' }}"
+        verbose_mode: "{{ verbose_mode | default(false) }}"
+        current_user: "{{ lookup('env', 'SUDO_USER') | default(lookup('env', 'USER'), true) }}"
+        sample_site_name: "{{ sample_site_name | default('laravel') }}"
 
     - name: Prompt for missing required variables
       block:
@@ -143,26 +139,26 @@
             prompt: "Create a sample Laravel site? (yes/no)"
             echo: yes
           register: sample_site_prompt
-          when: not create_sample_site
+          when: create_sample_site is not defined
           
         - name: Set sample site creation from prompt
           set_fact:
             create_sample_site: "{{ sample_site_prompt.user_input }}"
             create_sample: "{{ sample_site_prompt.user_input | lower == 'yes' }}"
-          when: not create_sample_site and sample_site_prompt.user_input is defined
+          when: sample_site_prompt.user_input is defined
           
         - name: Prompt for Adminer installation if not provided
           pause:
             prompt: "Install Adminer database manager? (yes/no)"
             echo: yes
           register: adminer_prompt
-          when: not install_adminer
+          when: install_adminer is not defined
           
         - name: Set Adminer installation from prompt
           set_fact:
             install_adminer: "{{ adminer_prompt.user_input }}"
             adminer_enabled: "{{ adminer_prompt.user_input | lower == 'yes' }}"
-          when: not install_adminer and adminer_prompt.user_input is defined
+          when: adminer_prompt.user_input is defined
           
         - name: Prompt for Adminer password if not provided
           pause:
