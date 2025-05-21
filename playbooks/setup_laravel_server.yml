@@ -9,7 +9,6 @@
   
   vars:
     # Default values that can be overridden via command line
-    db_system: "{{ db_system | default('mysql') }}"
     mysql_root_password: "{{ mysql_root_password | default('') }}"
     postgres_password: "{{ postgres_password | default('') }}"
     php_versions: "{{ php_versions | default('8.1') }}"
@@ -38,6 +37,10 @@
       debug:
         msg: "Setting up Laravel environment for user: {{ current_user }}"
       when: verbose_mode | bool
+
+    - name: Set initial database system
+      set_fact:
+        db_system: "{{ db_system | default('') }}"
 
     - name: Prompt for missing required variables
       block:
