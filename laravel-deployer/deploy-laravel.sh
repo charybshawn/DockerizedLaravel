@@ -481,13 +481,28 @@ configure_laravel() {
             print_status "INFO" "Creating .env from .env.example..."
             cp ".env.example" "/var/www/$SITE_NAME/shared/.env"
             # Update configuration in the copied .env file
-            sed -i "s|APP_URL=.*|APP_URL=$app_url|g" "/var/www/$SITE_NAME/shared/.env"
-            sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=mysql|g" "/var/www/$SITE_NAME/shared/.env"
-            sed -i "s|DB_HOST=.*|DB_HOST=127.0.0.1|g" "/var/www/$SITE_NAME/shared/.env"
-            sed -i "s|DB_PORT=.*|DB_PORT=3306|g" "/var/www/$SITE_NAME/shared/.env"
-            sed -i "s|DB_DATABASE=.*|DB_DATABASE=$DATABASE_NAME|g" "/var/www/$SITE_NAME/shared/.env"
-            sed -i "s|DB_USERNAME=.*|DB_USERNAME=$DATABASE_USER|g" "/var/www/$SITE_NAME/shared/.env"
-            sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=$DATABASE_PASSWORD|g" "/var/www/$SITE_NAME/shared/.env"
+            # Update configuration with more flexible patterns
+            sed -i "s|^APP_URL=.*|APP_URL=$app_url|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^DB_CONNECTION=.*|DB_CONNECTION=mysql|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^DB_HOST=.*|DB_HOST=127.0.0.1|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^DB_PORT=.*|DB_PORT=3306|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$DATABASE_NAME|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^DB_USERNAME=.*|DB_USERNAME=$DATABASE_USER|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$DATABASE_PASSWORD|g" "/var/www/$SITE_NAME/shared/.env"
+            
+            # Also handle commented out variables (common in .env.example)
+            sed -i "s|^#.*DB_CONNECTION=.*|DB_CONNECTION=mysql|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^#.*DB_HOST=.*|DB_HOST=127.0.0.1|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^#.*DB_PORT=.*|DB_PORT=3306|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^#.*DB_DATABASE=.*|DB_DATABASE=$DATABASE_NAME|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^#.*DB_USERNAME=.*|DB_USERNAME=$DATABASE_USER|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|^#.*DB_PASSWORD=.*|DB_PASSWORD=$DATABASE_PASSWORD|g" "/var/www/$SITE_NAME/shared/.env"
+            
+            # Debug: Show database configuration in .env file
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "INFO" "Database configuration in .env file:"
+                grep -E "^(DB_|APP_URL)" "/var/www/$SITE_NAME/shared/.env" | head -10
+            fi
             print_status "SUCCESS" ".env file created and configured with database details"
         else
             print_status "INFO" "No .env.example found, creating default .env..."
@@ -531,6 +546,11 @@ MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS="hello@example.com"
 MAIL_FROM_NAME="\${APP_NAME}"
 EOF
+            # Debug: Show database configuration in .env file
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "INFO" "Database configuration in .env file:"
+                grep -E "^(DB_|APP_URL)" "/var/www/$SITE_NAME/shared/.env" | head -10
+            fi
             print_status "SUCCESS" "Default .env file created with database configuration"
         fi
         

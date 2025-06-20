@@ -1,5 +1,5 @@
 # Default configuration (will be overwritten by install.sh)
 php_version: "8.3"
 database_type: "mariadb"
-database_password: ""
+database_password: "secure_root_password_2024"
 verbose_mode: false
