@@ -261,177 +261,6 @@ check_dependencies() {
     print_status "SUCCESS" "All dependencies found"
 }
 
-# Check and install required PHP extensions
-check_php_extensions() {
-    print_status "INFO" "Checking required PHP extensions..."
-    
-    # Required extensions for Laravel
-    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom" "xmlreader" "pdo_mysql")
-    local missing_packages=()
-    local php_ini_cli="/etc/php/8.3/cli/php.ini"
-    local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
-    
-    # Map extension names to package names
-    declare -A ext_packages=(
-        ["dom"]="php8.3-xml"
-        ["xmlreader"]="php8.3-xml"
-        ["fileinfo"]="php8.3-fileinfo" 
-        ["exif"]="php8.3-exif"
-        ["intl"]="php8.3-intl"
-        ["bcmath"]="php8.3-bcmath"
-        ["curl"]="php8.3-curl"
-        ["pdo_mysql"]="php8.3-mysql"
-    )
-    
-    # Check if extensions are loaded and install packages if needed
-    for ext in "${required_extensions[@]}"; do
-        if ! php -m | grep -q "^$ext$" 2>/dev/null; then
-            if [[ -n "${ext_packages[$ext]:-}" ]]; then
-                missing_packages+=("${ext_packages[$ext]}")
-            fi
-        fi
-    done
-    
-    # Install missing packages
-    if [[ ${#missing_packages[@]} -gt 0 ]]; then
-        print_status "INFO" "Installing missing PHP extensions: ${missing_packages[*]}"
-        
-        print_status "INFO" "Running: apt-get update && apt-get install -y ${missing_packages[*]}"
-        
-        apt-get update -qq >/dev/null 2>&1
-        
-        local install_output
-        install_output=$(apt-get install -y "${missing_packages[@]}" 2>&1)
-        local install_exit_code=$?
-        
-        if [[ $install_exit_code -ne 0 ]]; then
-            print_status "ERROR" "Failed to install PHP extensions: ${missing_packages[*]}"
-            echo "$install_output"
-            exit 1
-        else
-            print_status "SUCCESS" "Package installation completed"
-            echo "$install_output"
-        fi
-    fi
-    
-    # Clean up conflicting PDO extensions first
-    print_status "INFO" "Cleaning up PDO extension conflicts..."
-    for ini_file in "$php_ini_cli" "$php_ini_fpm"; do
-        if [[ -f "$ini_file" ]]; then
-            # Disable problematic PDO extensions that aren't needed
-            sed -i 's/^extension=pdo_firebird/;extension=pdo_firebird/' "$ini_file" 2>/dev/null || true
-            sed -i 's/^extension=pdo_oci/;extension=pdo_oci/' "$ini_file" 2>/dev/null || true
-            sed -i 's/^extension=pdo_odbc/;extension=pdo_odbc/' "$ini_file" 2>/dev/null || true
-            sed -i 's/^extension=pdo_pgsql/;extension=pdo_pgsql/' "$ini_file" 2>/dev/null || true
-            sed -i 's/^extension=pdo_sqlite/;extension=pdo_sqlite/' "$ini_file" 2>/dev/null || true
-        fi
-    done
-    
-    # Enable extensions in php.ini files with proper PDO order
-    print_status "INFO" "Enabling PHP extensions in configuration files..."
-    
-    # Handle pdo_mysql (pdo core is built into PHP)
-    for ext in "pdo_mysql"; do
-        if [[ " ${required_extensions[*]} " =~ " $ext " ]]; then
-            print_status "INFO" "Enabling extension: $ext"
-            
-            # Enable in CLI php.ini
-            if [[ -f "$php_ini_cli" ]]; then
-                # Check if already enabled
-                if grep -q "^extension=${ext}" "$php_ini_cli" 2>/dev/null; then
-                    print_status "INFO" "$ext already enabled in CLI php.ini"
-                elif grep -q "^;extension=${ext}" "$php_ini_cli" 2>/dev/null; then
-                    sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
-                    print_status "SUCCESS" "Uncommented $ext in CLI php.ini"
-                else
-                    echo "extension=${ext}" >> "$php_ini_cli"
-                    print_status "SUCCESS" "Added $ext to CLI php.ini"
-                fi
-            fi
-            
-            # Enable in FPM php.ini  
-            if [[ -f "$php_ini_fpm" ]]; then
-                # Check if already enabled
-                if grep -q "^extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
-                    print_status "INFO" "$ext already enabled in FPM php.ini"
-                elif grep -q "^;extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
-                    sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
-                    print_status "SUCCESS" "Uncommented $ext in FPM php.ini"
-                else
-                    echo "extension=${ext}" >> "$php_ini_fpm"
-                    print_status "SUCCESS" "Added $ext to FPM php.ini"
-                fi
-            fi
-        fi
-    done
-    
-    # Handle other extensions
-    for ext in "${required_extensions[@]}"; do
-        # Skip pdo_mysql as it's handled above
-        if [[ "$ext" == "pdo_mysql" ]]; then
-            continue
-        fi
-        
-        print_status "INFO" "Enabling extension: $ext"
-        
-        # Enable in CLI php.ini
-        if [[ -f "$php_ini_cli" ]]; then
-            # Check if already enabled
-            if grep -q "^extension=${ext}" "$php_ini_cli" 2>/dev/null; then
-                print_status "INFO" "$ext already enabled in CLI php.ini"
-            elif grep -q "^;extension=${ext}" "$php_ini_cli" 2>/dev/null; then
-                sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
-                print_status "SUCCESS" "Uncommented $ext in CLI php.ini"
-            else
-                echo "extension=${ext}" >> "$php_ini_cli"
-                print_status "SUCCESS" "Added $ext to CLI php.ini"
-            fi
-        fi
-        
-        # Enable in FPM php.ini  
-        if [[ -f "$php_ini_fpm" ]]; then
-            # Check if already enabled
-            if grep -q "^extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
-                print_status "INFO" "$ext already enabled in FPM php.ini"
-            elif grep -q "^;extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
-                sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
-                print_status "SUCCESS" "Uncommented $ext in FPM php.ini"
-            else
-                echo "extension=${ext}" >> "$php_ini_fpm"
-                print_status "SUCCESS" "Added $ext to FPM php.ini"
-            fi
-        fi
-    done
-    
-    # Restart PHP-FPM to load new extensions
-    print_status "INFO" "Restarting PHP-FPM service..."
-    systemctl restart php8.3-fpm 2>/dev/null || true
-    
-    # Give PHP a moment to restart
-    sleep 1
-    
-    # Verify extensions are now loaded
-    print_status "INFO" "Checking which extensions are now loaded..."
-    print_status "INFO" "All loaded PHP modules:"
-    php -m | sort
-    
-    local still_missing=()
-    for ext in "${required_extensions[@]}"; do
-        if ! php -m | grep -q "^$ext$" 2>/dev/null; then
-            still_missing+=("$ext")
-            print_status "WARN" "Extension $ext still not loaded"
-        else
-            print_status "SUCCESS" "Extension $ext is now loaded"
-        fi
-    done
-    
-    if [[ ${#still_missing[@]} -gt 0 ]]; then
-        print_status "WARN" "Some extensions still not loaded: ${still_missing[*]}"
-        print_status "INFO" "Continuing deployment - Composer will attempt to work around missing extensions"
-    else
-        print_status "SUCCESS" "All required PHP extensions enabled successfully"
-    fi
-}
 
 # Check if site already exists (for non-interactive mode)
 check_existing_site() {
@@ -545,7 +374,7 @@ clone_repository() {
     echo "$release_dir" > "/tmp/current_release"
 }
 
-# Install dependencies with automatic extension fixing
+# Install dependencies
 install_dependencies() {
     local release_dir=$(cat /tmp/current_release)
     print_status "INFO" "Installing Composer dependencies..."
@@ -567,7 +396,7 @@ install_dependencies() {
         print_status "INFO" "Composer install attempt $attempt of $max_attempts..."
         print_status "INFO" "Running: sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction"
         
-        # Capture composer output to check for extension errors
+        # Capture composer output
         local composer_output
         local composer_exit_code
         
@@ -589,35 +418,8 @@ install_dependencies() {
             echo "$composer_output"
         fi
         
-        # Check if the error is due to missing PHP extensions
-        if echo "$composer_output" | grep -q "requires ext-" || echo "$composer_output" | grep -q "Install or enable PHP's"; then
-            print_status "WARN" "Composer failed due to missing PHP extensions"
-            
-            # Extract missing extensions from error output
-            local missing_exts=()
-            while IFS= read -r line; do
-                if [[ $line =~ requires\ ext-([a-zA-Z0-9_]+) ]]; then
-                    missing_exts+=("${BASH_REMATCH[1]}")
-                elif [[ $line =~ Install\ or\ enable\ PHP\'s\ ([a-zA-Z0-9_]+)\ extension ]]; then
-                    missing_exts+=("${BASH_REMATCH[1]}")
-                fi
-            done <<< "$composer_output"
-            
-            if [[ ${#missing_exts[@]} -gt 0 ]]; then
-                # Remove duplicates
-                local unique_exts=($(printf "%s\n" "${missing_exts[@]}" | sort -u))
-                print_status "INFO" "Attempting to fix missing extensions: ${unique_exts[*]}"
-                
-                # Try to install and enable the missing extensions
-                fix_missing_extensions "${unique_exts[@]}"
-                
-                # Continue to next attempt
-                ((attempt++))
-                continue
-            fi
-        fi
         
-        # If not an extension error or we couldn't fix it, show the error and exit
+        # Show the error and exit
         print_status "ERROR" "Composer installation failed (attempt $attempt):"
         echo "$composer_output"
         
@@ -634,117 +436,6 @@ install_dependencies() {
     exit 1
 }
 
-# Fix missing PHP extensions
-fix_missing_extensions() {
-    local extensions=("$@")
-    local php_ini_cli="/etc/php/8.3/cli/php.ini"
-    local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
-    local fixed_any=false
-    
-    # Map common extension names to package names
-    declare -A ext_packages=(
-        ["dom"]="php8.3-xml"
-        ["xml"]="php8.3-xml"
-        ["simplexml"]="php8.3-xml"
-        ["xmlreader"]="php8.3-xml"
-        ["xmlwriter"]="php8.3-xml"
-        ["fileinfo"]="php8.3-fileinfo"
-        ["exif"]="php8.3-exif"
-        ["intl"]="php8.3-intl"
-        ["bcmath"]="php8.3-bcmath"
-        ["curl"]="php8.3-curl"
-        ["gd"]="php8.3-gd"
-        ["zip"]="php8.3-zip"
-        ["mysqli"]="php8.3-mysql"
-        ["pdo_mysql"]="php8.3-mysql"
-        ["openssl"]="php8.3-common"
-        ["mbstring"]="php8.3-mbstring"
-        ["tokenizer"]="php8.3-tokenizer"
-        ["ctype"]="php8.3-ctype"
-        ["json"]="php8.3-json"
-        ["filter"]="php8.3-common"
-        ["hash"]="php8.3-common"
-        ["pcre"]="php8.3-common"
-        ["session"]="php8.3-common"
-        ["spl"]="php8.3-common"
-    )
-    
-    for ext in "${extensions[@]}"; do
-        print_status "INFO" "Fixing extension: $ext"
-        
-        # First try to enable in php.ini files
-        local enabled_in_cli=false
-        local enabled_in_fmp=false
-        
-        if [[ -f "$php_ini_cli" ]]; then
-            if sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null; then
-                enabled_in_cli=true
-            fi
-        fi
-        
-        if [[ -f "$php_ini_fpm" ]]; then
-            if sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null; then
-                enabled_in_fmp=true
-            fi
-        fi
-        
-        # If we enabled it in ini files, mark as potentially fixed
-        if [[ $enabled_in_cli == true || $enabled_in_fmp == true ]]; then
-            fixed_any=true
-            print_status "SUCCESS" "Enabled $ext extension in php.ini"
-        fi
-        
-        # If extension has a package mapping, try to install it
-        if [[ -n "${ext_packages[$ext]:-}" ]]; then
-            print_status "INFO" "Installing package: ${ext_packages[$ext]}"
-            if apt-get update -qq >/dev/null 2>&1 && apt-get install -y "${ext_packages[$ext]}" >/dev/null 2>&1; then
-                fixed_any=true
-                print_status "SUCCESS" "Installed package: ${ext_packages[$ext]}"
-            else
-                print_status "WARN" "Failed to install package: ${ext_packages[$ext]}"
-            fi
-        else
-            print_status "WARN" "No package mapping found for extension: $ext"
-        fi
-    done
-    
-    if [[ $fixed_any == true ]]; then
-        # Restart PHP-FPM to load changes
-        print_status "INFO" "Restarting PHP-FPM to load extension changes..."
-        systemctl restart php8.3-fpm 2>/dev/null || true
-        
-        # Give it a moment to restart
-        sleep 2
-        
-        # Verify the extensions are now loaded
-        print_status "INFO" "Verifying extensions after fixes..."
-        print_status "INFO" "Current PHP modules after fixes:"
-        php -m | sort
-        
-        local verified_fixes=()
-        local still_broken=()
-        
-        for ext in "${extensions[@]}"; do
-            if php -m | grep -q "^$ext$" 2>/dev/null; then
-                verified_fixes+=("$ext")
-                print_status "SUCCESS" "Extension $ext is now working"
-            else
-                still_broken+=("$ext")
-                print_status "WARN" "Extension $ext still not working after fixes"
-            fi
-        done
-        
-        if [[ ${#verified_fixes[@]} -gt 0 ]]; then
-            print_status "SUCCESS" "Successfully fixed extensions: ${verified_fixes[*]}"
-        fi
-        
-        if [[ ${#still_broken[@]} -gt 0 ]]; then
-            print_status "WARN" "Could not fix extensions: ${still_broken[*]}"
-        fi
-    else
-        print_status "WARN" "No extension fixes could be applied"
-    fi
-}
 
 # Configure Laravel environment
 configure_laravel() {
@@ -977,8 +668,6 @@ main() {
     echo "DEBUG: Passed check_privileges"
     check_dependencies
     echo "DEBUG: Passed check_dependencies"
-    check_php_extensions
-    echo "DEBUG: Passed check_php_extensions"
     
     # Get user input (interactive or validate flags)
     get_user_input

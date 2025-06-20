@@ -75,6 +75,8 @@
     line: "{{ item.line }}"
     backup: yes
   loop:
+    - { regexp: '^;?extension=pdo', line: 'extension=pdo' }
+    - { regexp: '^;?extension=pdo_mysql', line: 'extension=pdo_mysql' }
     - { regexp: '^;?extension=phar', line: 'extension=phar' }
     - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
     - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
@@ -83,6 +85,9 @@
     - { regexp: '^;?extension=fileinfo', line: 'extension=fileinfo' }
     - { regexp: '^;?extension=exif', line: 'extension=exif' }
     - { regexp: '^;?extension=intl', line: 'extension=intl' }
+    - { regexp: '^;?extension=bcmath', line: 'extension=bcmath' }
+    - { regexp: '^;?extension=dom', line: 'extension=dom' }
+    - { regexp: '^;?extension=xmlreader', line: 'extension=xmlreader' }
   notify: restart php-fpm
 
 - name: Enable PHP extensions in CLI php.ini
@@ -92,6 +97,8 @@
     line: "{{ item.line }}"
     backup: yes
   loop:
+    - { regexp: '^;?extension=pdo', line: 'extension=pdo' }
+    - { regexp: '^;?extension=pdo_mysql', line: 'extension=pdo_mysql' }
     - { regexp: '^;?extension=phar', line: 'extension=phar' }
     - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
     - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
@@ -100,6 +107,9 @@
     - { regexp: '^;?extension=fileinfo', line: 'extension=fileinfo' }
     - { regexp: '^;?extension=exif', line: 'extension=exif' }
     - { regexp: '^;?extension=intl', line: 'extension=intl' }
+    - { regexp: '^;?extension=bcmath', line: 'extension=bcmath' }
+    - { regexp: '^;?extension=dom', line: 'extension=dom' }
+    - { regexp: '^;?extension=xmlreader', line: 'extension=xmlreader' }
 
 - name: Create PHP-FPM main configuration
   copy:
