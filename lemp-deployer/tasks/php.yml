@@ -25,8 +25,34 @@
       - "php{{ php_version }}-mysql"
       - "php{{ php_version }}-pgsql"
       - "php{{ php_version }}-opcache"
+      - "php{{ php_version }}-iconv"
     state: present
   notify: restart php-fpm
+
+- name: Enable PHP extensions in php.ini
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  loop:
+    - { regexp: '^;?extension=phar', line: 'extension=phar' }
+    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
+    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
+    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
+  notify: restart php-fpm
+
+- name: Enable PHP extensions in CLI php.ini
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/cli/php.ini"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  loop:
+    - { regexp: '^;?extension=phar', line: 'extension=phar' }
+    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
+    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
+    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
 
 - name: Ensure PHP-FPM configuration directory exists
   file:
