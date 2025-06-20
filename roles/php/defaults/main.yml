@@ -22,6 +22,8 @@ php_extensions:
   - soap
   - xdebug
   - redis
+  - iconv
+  - phar
 
 # PHP-FPM configuration
 php_fpm_pools:
