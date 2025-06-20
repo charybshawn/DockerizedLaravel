@@ -1,10 +1,19 @@
 ---
-- name: Remove old Node.js if present
+- name: Remove old Node.js packages completely
   apt:
     name:
       - nodejs
       - npm
+      - nodejs-doc
+      - libnode-dev
+      - libnode72
     state: absent
+    purge: yes
+  ignore_errors: yes
+
+- name: Autoremove orphaned packages
+  apt:
+    autoremove: yes
   ignore_errors: yes
 
 - name: Download and install NodeSource setup script
