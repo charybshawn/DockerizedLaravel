@@ -20,6 +20,7 @@ GITHUB_BRANCH="main"
 DATABASE_NAME=""
 DATABASE_USER=""
 DATABASE_PASSWORD=""
+NGINX_PORT="80"
 VERBOSE=false
 FORCE=false
 SSL_ENABLED=false
@@ -55,6 +56,7 @@ Non-Interactive Mode:
     --database-name NAME       Database name (default: site_name)
     --database-user USER       Database user (default: site_name)
     --database-password PASS   Database password
+    --port PORT                Nginx port to listen on (default: 80)
     --ssl                      Enable SSL/HTTPS configuration
     --force                    Overwrite existing site
     --verbose                  Show detailed output
@@ -105,6 +107,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --database-password)
             DATABASE_PASSWORD="$2"
+            shift 2
+            ;;
+        --port)
+            NGINX_PORT="$2"
             shift 2
             ;;
         --ssl)
@@ -178,6 +184,12 @@ get_user_input() {
     read -p "Git branch (default: main): " input
     if [[ -n "$input" ]]; then
         GITHUB_BRANCH="$input"
+    fi
+    
+    # Nginx port configuration
+    read -p "Nginx port (default: 80): " input
+    if [[ -n "$input" ]]; then
+        NGINX_PORT="$input"
     fi
     
     # SSL configuration
@@ -446,15 +458,36 @@ configure_laravel() {
     
     # Create .env file if it doesn't exist in shared
     if [[ ! -f "/var/www/$SITE_NAME/shared/.env" ]]; then
+        # Build the correct APP_URL based on SSL and port configuration
+        local app_url_scheme="http"
+        local app_url_port=""
+        
+        if [[ "$SSL_ENABLED" == true ]]; then
+            app_url_scheme="https"
+            # Only show port if it's not the default HTTPS port (443)
+            if [[ "$NGINX_PORT" != "443" ]]; then
+                app_url_port=":$NGINX_PORT"
+            fi
+        else
+            # Only show port if it's not the default HTTP port (80)
+            if [[ "$NGINX_PORT" != "80" ]]; then
+                app_url_port=":$NGINX_PORT"
+            fi
+        fi
+        
+        local app_url="${app_url_scheme}://${DOMAIN}${app_url_port}"
+        
         if [[ -f ".env.example" ]]; then
             cp ".env.example" "/var/www/$SITE_NAME/shared/.env"
+            # Update APP_URL in the copied .env.example file
+            sed -i "s|APP_URL=.*|APP_URL=$app_url|g" "/var/www/$SITE_NAME/shared/.env"
         else
             cat > "/var/www/$SITE_NAME/shared/.env" << EOF
 APP_NAME="$SITE_NAME"
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
-APP_URL=http://$DOMAIN
+APP_URL=$app_url
 
 LOG_CHANNEL=stack
 LOG_DEPRECATIONS_CHANNEL=null
@@ -545,8 +578,8 @@ configure_nginx() {
     
     if [[ "$SSL_ENABLED" == true ]]; then
         ssl_config="
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen $NGINX_PORT ssl http2;
+    listen [::]:$NGINX_PORT ssl http2;
     
     ssl_certificate /etc/ssl/certs/$DOMAIN.crt;
     ssl_certificate_key /etc/ssl/private/$DOMAIN.key;
@@ -560,8 +593,8 @@ configure_nginx() {
     }"
     else
         ssl_config="
-    listen 80;
-    listen [::]:80;"
+    listen $NGINX_PORT;
+    listen [::]:$NGINX_PORT;"
     fi
     
     cat > "$nginx_config" << EOF
@@ -677,6 +710,7 @@ main() {
     print_status "INFO" "Domain: $DOMAIN"
     print_status "INFO" "Repository: $GITHUB_REPO"
     print_status "INFO" "Branch: $GITHUB_BRANCH"
+    print_status "INFO" "Port: $NGINX_PORT"
     echo
     
     check_existing_site
@@ -696,7 +730,24 @@ main() {
     print_status "SUCCESS" "Laravel site '$SITE_NAME' deployed successfully!"
     echo
     echo "Site Details:"
-    echo "  URL: http://$DOMAIN"
+    # Build the correct URL based on SSL and port configuration
+    local url_scheme="http"
+    local url_port=""
+    
+    if [[ "$SSL_ENABLED" == true ]]; then
+        url_scheme="https"
+        # Only show port if it's not the default HTTPS port (443)
+        if [[ "$NGINX_PORT" != "443" ]]; then
+            url_port=":$NGINX_PORT"
+        fi
+    else
+        # Only show port if it's not the default HTTP port (80)
+        if [[ "$NGINX_PORT" != "80" ]]; then
+            url_port=":$NGINX_PORT"
+        fi
+    fi
+    
+    echo "  URL: ${url_scheme}://${DOMAIN}${url_port}"
     echo "  Document Root: /var/www/$SITE_NAME/current/public"
     echo "  Database: $DATABASE_NAME"
     echo "  Logs: /var/log/nginx/${SITE_NAME}_*.log"
