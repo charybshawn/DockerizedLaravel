@@ -49,10 +49,32 @@
     var: git_clone_result
   when: git_repo is defined and git_repo != ""
 
+- name: Debug site_user and environment
+  debug:
+    msg: |
+      site_user: {{ site_user }}
+      PATH: {{ ansible_env.PATH }}
+      Working directory: /var/www/{{ site_name }}
+      Composer location: {{ ansible_env.PATH.split(':') | select('match', '.*local.*') | list }}
+
+- name: Check if Composer is available
+  command: which composer
+  register: composer_path_check
+  failed_when: false
+  changed_when: false
+
+- name: Display Composer path info
+  debug:
+    msg: |
+      Composer found at: {{ composer_path_check.stdout if composer_path_check.rc == 0 else 'NOT FOUND' }}
+      Return code: {{ composer_path_check.rc }}
+
 - name: Create fresh Laravel project if no Git repo is specified
-  shell: composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction
+  shell: /usr/local/bin/composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction
   args:
     creates: "/var/www/{{ site_name }}/artisan"
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
   become: yes
   become_user: "{{ site_user }}"
   when: git_repo is not defined or git_repo == ""
@@ -121,10 +143,12 @@
   shell: >
     cd /var/www/{{ site_name }} && 
     {% if force_ignore_php_version | default(false) | bool %}
-    composer install --no-interaction --ignore-platform-reqs
+    /usr/local/bin/composer install --no-interaction --ignore-platform-reqs
     {% else %}
-    composer install --no-interaction
+    /usr/local/bin/composer install --no-interaction
     {% endif %}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
   become: yes
   become_user: "{{ site_user }}"
   when: install_dependencies | default(true) | bool
