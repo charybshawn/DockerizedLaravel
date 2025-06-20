@@ -67,9 +67,7 @@ Examples:
     $0 --site-name myapp --domain myapp.local --github-repo https://github.com/user/myapp.git
 
 Directory Structure:
-    /var/www/SITE_NAME/         - Site root directory
-    /var/www/SITE_NAME/current  - Current deployment (symlink)
-    /var/www/SITE_NAME/releases - Release history
+    /var/www/SITE_NAME/         - Site root directory (git repository)
     /var/www/SITE_NAME/shared   - Shared files (.env, storage)
 
 EOF
@@ -355,7 +353,7 @@ create_directories() {
     
     [[ "$FORCE" == true ]] && rm -rf "/var/www/$SITE_NAME"
     
-    mkdir -p "/var/www/$SITE_NAME"/{releases,shared,shared/storage}
+    mkdir -p "/var/www/$SITE_NAME/shared/storage"
     
     # Create shared directories that Laravel needs
     mkdir -p "/var/www/$SITE_NAME/shared/storage"/{app,framework,logs}
@@ -370,28 +368,28 @@ create_directories() {
 clone_repository() {
     print_status "INFO" "Cloning repository from $GITHUB_REPO..."
     
-    local release_dir="/var/www/$SITE_NAME/releases/$(date +%Y%m%d_%H%M%S)"
+    local site_dir="/var/www/$SITE_NAME"
     
-    git clone --branch "$GITHUB_BRANCH" --depth 1 "$GITHUB_REPO" "$release_dir" || {
+    git clone --branch "$GITHUB_BRANCH" "$GITHUB_REPO" "$site_dir/temp" || {
         print_status "ERROR" "Failed to clone repository"
         exit 1
     }
     
-    # Remove .git directory to save space
-    rm -rf "$release_dir/.git"
+    # Move contents from temp to site root
+    mv "$site_dir/temp/"* "$site_dir/"
+    mv "$site_dir/temp/".* "$site_dir/" 2>/dev/null || true
+    rmdir "$site_dir/temp"
     
-    chown -R www-data:www-data "$release_dir"
-    print_status "SUCCESS" "Repository cloned to $release_dir"
-    
-    echo "$release_dir" > "/tmp/current_release"
+    chown -R www-data:www-data "$site_dir"
+    print_status "SUCCESS" "Repository cloned to $site_dir"
 }
 
 # Install dependencies
 install_dependencies() {
-    local release_dir=$(cat /tmp/current_release)
+    local site_dir="/var/www/$SITE_NAME"
     print_status "INFO" "Installing Composer dependencies..."
     
-    cd "$release_dir"
+    cd "$site_dir"
     
     # Test Composer is working
     print_status "INFO" "Testing Composer availability..."
@@ -457,10 +455,10 @@ install_dependencies() {
 
 # Build frontend assets using npm
 build_frontend_assets() {
-    local release_dir=$(cat /tmp/current_release)
+    local site_dir="/var/www/$SITE_NAME"
     print_status "INFO" "Building frontend assets..."
     
-    cd "$release_dir"
+    cd "$site_dir"
     
     # Check if Node.js and npm are available
     if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
@@ -492,10 +490,10 @@ build_frontend_assets() {
 
 # Configure Laravel environment
 configure_laravel() {
-    local release_dir=$(cat /tmp/current_release)
+    local site_dir="/var/www/$SITE_NAME"
     print_status "INFO" "Configuring Laravel environment..."
     
-    cd "$release_dir"
+    cd "$site_dir"
     
     # Create .env file if it doesn't exist in shared
     if [[ ! -f "/var/www/$SITE_NAME/shared/.env" ]]; then
@@ -599,11 +597,11 @@ EOF
     fi
     
     # Link .env file
-    ln -sf "/var/www/$SITE_NAME/shared/.env" "$release_dir/.env"
+    ln -sf "/var/www/$SITE_NAME/shared/.env" "$site_dir/.env"
     
     # Link storage directory
-    rm -rf "$release_dir/storage"
-    ln -sf "/var/www/$SITE_NAME/shared/storage" "$release_dir/storage"
+    rm -rf "$site_dir/storage"
+    ln -sf "/var/www/$SITE_NAME/shared/storage" "$site_dir/storage"
     
     # Generate application key if needed
     if ! grep -q "APP_KEY=base64:" "/var/www/$SITE_NAME/shared/.env"; then
@@ -626,19 +624,6 @@ EOF
     print_status "SUCCESS" "Laravel configured"
 }
 
-# Create symlink to current release
-create_symlink() {
-    local release_dir=$(cat /tmp/current_release)
-    print_status "INFO" "Creating symlink to current release..."
-    
-    # Remove old current symlink
-    rm -f "/var/www/$SITE_NAME/current"
-    
-    # Create new symlink
-    ln -sf "$release_dir" "/var/www/$SITE_NAME/current"
-    
-    print_status "SUCCESS" "Symlink created"
-}
 
 # Configure Nginx
 configure_nginx() {
@@ -673,7 +658,7 @@ server {
 $ssl_config
     
     server_name $DOMAIN;
-    root /var/www/$SITE_NAME/current/public;
+    root /var/www/$SITE_NAME/public;
     index index.php index.html index.htm;
     
     access_log /var/log/nginx/${SITE_NAME}_access.log;
@@ -751,15 +736,6 @@ set_permissions() {
     print_status "SUCCESS" "Permissions set"
 }
 
-# Cleanup old releases (keep last 5)
-cleanup_releases() {
-    print_status "INFO" "Cleaning up old releases..."
-    
-    cd "/var/www/$SITE_NAME/releases"
-    ls -t | tail -n +6 | xargs -r rm -rf
-    
-    print_status "SUCCESS" "Old releases cleaned up"
-}
 
 # Main execution
 main() {
@@ -792,10 +768,8 @@ main() {
     clone_repository
     install_dependencies
     configure_laravel
-    create_symlink
     configure_nginx
     set_permissions
-    cleanup_releases
     
     echo
     print_status "SUCCESS" "Laravel site '$SITE_NAME' deployed successfully!"
@@ -819,7 +793,7 @@ main() {
     fi
     
     echo "  URL: ${url_scheme}://${DOMAIN}${url_port}"
-    echo "  Document Root: /var/www/$SITE_NAME/current/public"
+    echo "  Document Root: /var/www/$SITE_NAME/public"
     echo "  Database: $DATABASE_NAME"
     echo "  Nginx Config: /etc/nginx/sites-available/$SITE_NAME"
     echo "  Logs: /var/log/nginx/${SITE_NAME}_*.log"
@@ -835,15 +809,10 @@ main() {
         echo "  3. Consider enabling SSL with --ssl flag for production"
     fi
     echo "  4. Run additional Laravel commands as needed:"
-    echo "     cd /var/www/$SITE_NAME/current && sudo -u www-data php artisan ..."
+    echo "     cd /var/www/$SITE_NAME && sudo -u www-data php artisan ..."
     echo
 }
 
-# Cleanup on exit
-cleanup() {
-    rm -f /tmp/current_release
-}
-trap cleanup EXIT
 
 # Run main function
 main "$@"
