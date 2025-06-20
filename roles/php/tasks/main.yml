@@ -117,8 +117,19 @@
   failed_when: php_version_check.rc != 0
   tags: ['php', 'verification']
 
-- name: Display PHP versions
+- name: Check PHP extensions
+  command: "php{{ item }} -m"
+  loop: "{{ php_versions }}"
+  register: php_extensions_check
+  changed_when: false
+  tags: ['php', 'verification']
+
+- name: Display PHP versions and extensions
   debug:
-    msg: "PHP {{ item.item }} installed: {{ item.stdout_lines[0] }}"
-  loop: "{{ php_version_check.results }}"
+    msg: |
+      PHP {{ item.item }} installed: {{ php_version_check.results[ansible_loop.index0].stdout_lines[0] }}
+      Extensions loaded: {{ php_extensions_check.results[ansible_loop.index0].stdout_lines | select('match', '^(phar|mbstring|iconv|tokenizer)$') | list | join(', ') }}
+  loop: "{{ php_versions }}"
+  loop_control:
+    extended: yes
   tags: ['php', 'info']

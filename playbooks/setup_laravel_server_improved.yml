@@ -167,6 +167,20 @@
     
     - name: Install Composer
       block:
+        - name: Check PHP extensions for Composer
+          command: php -m
+          register: php_extensions_list
+          changed_when: false
+          
+        - name: Display PHP extensions status
+          debug:
+            msg: |
+              Required extensions status:
+              - phar: {{ 'LOADED' if 'phar' in php_extensions_list.stdout else 'MISSING' }}
+              - mbstring: {{ 'LOADED' if 'mbstring' in php_extensions_list.stdout else 'MISSING' }}
+              - iconv: {{ 'LOADED' if 'iconv' in php_extensions_list.stdout else 'MISSING' }}
+              - tokenizer: {{ 'LOADED' if 'tokenizer' in php_extensions_list.stdout else 'MISSING' }}
+          
         - name: Download Composer installer
           get_url:
             url: https://getcomposer.org/installer
