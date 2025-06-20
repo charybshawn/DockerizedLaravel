@@ -127,7 +127,7 @@
 - name: Display PHP versions and extensions
   debug:
     msg: |
-      PHP {{ item.item }} installed: {{ php_version_check.results[ansible_loop.index0].stdout_lines[0] }}
+      PHP {{ item }} installed: {{ php_version_check.results[ansible_loop.index0].stdout_lines[0] }}
       Extensions loaded: {{ php_extensions_check.results[ansible_loop.index0].stdout_lines | select('match', '^(phar|mbstring|iconv|tokenizer)$') | list | join(', ') }}
   loop: "{{ php_versions }}"
   loop_control:
