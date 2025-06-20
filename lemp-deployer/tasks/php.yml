@@ -29,6 +29,10 @@
       - "php{{ php_version }}-dom"
       - "php{{ php_version }}-fileinfo"
       - "php{{ php_version }}-exif"
+      - "php{{ php_version }}-simplexml"
+      - "php{{ php_version }}-xmlreader"
+      - "php{{ php_version }}-xmlwriter"
+      - "php{{ php_version }}-tokenizer"
     state: present
   notify: restart php-fpm
 
