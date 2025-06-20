@@ -172,14 +172,43 @@
           register: php_extensions_list
           changed_when: false
           
-        - name: Display PHP extensions status
+        - name: Check PHP binary info
+          command: which php
+          register: php_binary_path
+          changed_when: false
+          
+        - name: Check PHP version being used
+          command: php --version
+          register: php_version_used
+          changed_when: false
+          
+        - name: Test tokenizer function directly
+          command: php -r "echo 'tokenizer available: ' . (function_exists('token_get_all') ? 'YES' : 'NO') . PHP_EOL;"
+          register: tokenizer_function_test
+          changed_when: false
+          
+        - name: Test phar class directly
+          command: php -r "echo 'phar available: ' . (class_exists('Phar') ? 'YES' : 'NO') . PHP_EOL;"
+          register: phar_class_test
+          changed_when: false
+          
+        - name: Display comprehensive PHP extensions status
           debug:
             msg: |
-              Required extensions status:
-              - phar: {{ 'LOADED' if 'phar' in php_extensions_list.stdout else 'MISSING' }}
-              - mbstring: {{ 'LOADED' if 'mbstring' in php_extensions_list.stdout else 'MISSING' }}
-              - iconv: {{ 'LOADED' if 'iconv' in php_extensions_list.stdout else 'MISSING' }}
-              - tokenizer: {{ 'LOADED' if 'tokenizer' in php_extensions_list.stdout else 'MISSING' }}
+              PHP Binary: {{ php_binary_path.stdout }}
+              PHP Version: {{ php_version_used.stdout_lines[0] }}
+              
+              Extension Detection:
+              - phar (via php -m): {{ 'LOADED' if 'phar' in php_extensions_list.stdout else 'MISSING' }}
+              - mbstring (via php -m): {{ 'LOADED' if 'mbstring' in php_extensions_list.stdout else 'MISSING' }}
+              - iconv (via php -m): {{ 'LOADED' if 'iconv' in php_extensions_list.stdout else 'MISSING' }}
+              - tokenizer (via php -m): {{ 'LOADED' if 'tokenizer' in php_extensions_list.stdout else 'MISSING' }}
+              
+              Function/Class Tests:
+              - {{ tokenizer_function_test.stdout.strip() }}
+              - {{ phar_class_test.stdout.strip() }}
+              
+              All Extensions: {{ php_extensions_list.stdout_lines | join(', ') }}
           
         - name: Download Composer installer
           get_url:
