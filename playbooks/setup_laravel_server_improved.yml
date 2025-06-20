@@ -30,7 +30,7 @@
       tags: ['always']
     
     - name: Include input validation
-      include_tasks: ../tasks/validation.yml
+      include_tasks: ../tasks/validation_simple.yml
       tags: ['validation']
     
     - name: Create setup log directory

@@ -167,11 +167,13 @@ verify_operating_system() {
     
     local os_id=""
     local os_version=""
+    local os_pretty_name=""
     
     if [[ -f /etc/os-release ]]; then
-        source /etc/os-release
-        os_id="${ID,,}"
-        os_version="${VERSION_ID}"
+        # Parse os-release without sourcing to avoid conflicts
+        os_id=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')
+        os_version=$(grep "^VERSION_ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+        os_pretty_name=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d= -f2 | tr -d '"')
     else
         handle_error $EXIT_GENERAL_ERROR "Unable to determine operating system"
     fi
@@ -188,8 +190,8 @@ verify_operating_system() {
         handle_error $EXIT_GENERAL_ERROR "Unsupported operating system: ${os_id}. Supported: ${SUPPORTED_OS[*]}"
     fi
     
-    log_info "Operating system verified: ${PRETTY_NAME}"
-    print_status "SUCCESS" "Operating system: ${PRETTY_NAME}"
+    log_info "Operating system verified: ${os_pretty_name}"
+    print_status "SUCCESS" "Operating system: ${os_pretty_name}"
 }
 
 # Check system requirements

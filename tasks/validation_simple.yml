@@ -1,0 +1,52 @@
+---
+# Simple input validation tasks for Laravel environment setup
+# This version works without custom filter plugins
+
+- name: Validate PHP versions format
+  fail:
+    msg: "Invalid PHP version format: {{ item }}. Must be like 8.1, 8.2, 8.3, etc."
+  when: not (item | regex_match('^[78]\.[0-9]$'))
+  loop: "{{ php_version_list | default([]) }}"
+  tags: ['validation', 'php']
+
+- name: Validate default PHP version format
+  fail:
+    msg: "Invalid default PHP version format: {{ default_php_version }}. Must be like 8.1, 8.2, 8.3, etc."
+  when: 
+    - default_php_version is defined
+    - not (default_php_version | regex_match('^[78]\.[0-9]$'))
+  tags: ['validation', 'php']
+
+- name: Validate database systems selection
+  fail:
+    msg: "Invalid database system: {{ item }}. Must be one of: mysql, postgres, sqlite"
+  when: item not in ['mysql', 'postgres', 'sqlite']
+  loop: "{{ db_systems.split() | default([]) }}"
+  tags: ['validation', 'database']
+
+- name: Ensure at least one database system is selected
+  fail:
+    msg: "At least one database system must be selected"
+  when: 
+    - db_systems is defined 
+    - (db_systems | length == 0 or db_systems.split() | length == 0)
+  tags: ['validation', 'database']
+
+- name: Validate Node.js version
+  fail:
+    msg: "Invalid Node.js version: {{ node_version }}. Must be a number (e.g., 16, 18, 20)"
+  when: 
+    - node_version is defined
+    - not (node_version | string | regex_match('^[0-9]+$'))
+  tags: ['validation', 'nodejs']
+
+- name: Display validation summary
+  debug:
+    msg: |
+      Input validation completed successfully:
+      - PHP versions: {{ php_version_list | default(['8.3']) | join(', ') }}
+      - Default PHP: {{ default_php_version | default('8.3') }}
+      - Database systems: {{ db_systems | default('mysql') }}
+      - Node.js version: {{ node_version | default('18') }}
+  when: verbose_mode | default(false) | bool
+  tags: ['validation', 'info']
