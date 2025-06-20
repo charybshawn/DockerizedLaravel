@@ -266,7 +266,7 @@ check_php_extensions() {
     print_status "INFO" "Checking required PHP extensions..."
     
     # Required extensions for Laravel
-    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom" "xmlreader" "pdo" "pdo_mysql")
+    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom" "xmlreader" "pdo_mysql")
     local missing_packages=()
     local php_ini_cli="/etc/php/8.3/cli/php.ini"
     local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
@@ -280,7 +280,6 @@ check_php_extensions() {
         ["intl"]="php8.3-intl"
         ["bcmath"]="php8.3-bcmath"
         ["curl"]="php8.3-curl"
-        ["pdo"]="php8.3-mysql"
         ["pdo_mysql"]="php8.3-mysql"
     )
     
@@ -331,8 +330,8 @@ check_php_extensions() {
     # Enable extensions in php.ini files with proper PDO order
     print_status "INFO" "Enabling PHP extensions in configuration files..."
     
-    # Handle PDO first (must be loaded before pdo_mysql)
-    for ext in "pdo" "pdo_mysql"; do
+    # Handle pdo_mysql (pdo core is built into PHP)
+    for ext in "pdo_mysql"; do
         if [[ " ${required_extensions[*]} " =~ " $ext " ]]; then
             print_status "INFO" "Enabling extension: $ext"
             
@@ -368,8 +367,8 @@ check_php_extensions() {
     
     # Handle other extensions
     for ext in "${required_extensions[@]}"; do
-        # Skip PDO extensions as they're handled above
-        if [[ "$ext" == "pdo" || "$ext" == "pdo_mysql" ]]; then
+        # Skip pdo_mysql as it's handled above
+        if [[ "$ext" == "pdo_mysql" ]]; then
             continue
         fi
         
@@ -657,7 +656,6 @@ fix_missing_extensions() {
         ["gd"]="php8.3-gd"
         ["zip"]="php8.3-zip"
         ["mysqli"]="php8.3-mysql"
-        ["pdo"]="php8.3-mysql"
         ["pdo_mysql"]="php8.3-mysql"
         ["openssl"]="php8.3-common"
         ["mbstring"]="php8.3-mbstring"
