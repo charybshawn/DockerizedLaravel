@@ -7,35 +7,26 @@
     state: absent
   ignore_errors: yes
 
-- name: Create keyrings directory
-  file:
-    path: /etc/apt/keyrings
-    state: directory
+- name: Download and install NodeSource setup script
+  get_url:
+    url: https://deb.nodesource.com/setup_20.x
+    dest: /tmp/nodesource_setup.sh
     mode: '0755'
 
-- name: Download NodeSource GPG key
-  get_url:
-    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
-    dest: /tmp/nodesource.gpg.key
-    mode: '0644'
-
-- name: Import NodeSource GPG key
-  shell: cat /tmp/nodesource.gpg.key | gpg --dearmor | tee /etc/apt/keyrings/nodesource.gpg > /dev/null
-
-- name: Add Node.js 20.x repository
-  apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x {{ ansible_distribution_release }} main"
-    state: present
-    filename: nodesource
-
-- name: Update package cache
-  apt:
-    update_cache: yes
+- name: Run NodeSource setup script
+  shell: bash /tmp/nodesource_setup.sh
+  become: yes
 
 - name: Install Node.js 20.x
   apt:
     name: nodejs
     state: present
+    update_cache: yes
+
+- name: Clean up setup script
+  file:
+    path: /tmp/nodesource_setup.sh
+    state: absent
 
 - name: Verify Node.js installation
   command: node --version
