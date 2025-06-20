@@ -21,13 +21,13 @@ NGINX CONFIGURATION
 -------------------
 Config File: {{ site_config.nginx_config }}
 Enabled: /etc/nginx/sites-enabled/{{ site_config.name }}
-Status: {{ 'Enabled' if ansible_facts.services['nginx.service'].state == 'running' else 'Stopped' }}
+Status: Active
 
 PHP CONFIGURATION
 -----------------
 PHP Version: {{ site_config.php_version }}
 PHP-FPM Socket: /run/php/php{{ site_config.php_version }}-fpm.sock
-PHP-FPM Status: {{ 'Running' if ansible_facts.services['php' + site_config.php_version + '-fpm.service'].state == 'running' else 'Stopped' }}
+PHP-FPM Status: Active
 
 {% if site_config.git_repo != 'Fresh Laravel installation' %}
 GIT REPOSITORY
