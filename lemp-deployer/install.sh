@@ -52,6 +52,10 @@ Examples:
     $0                         Interactive installation
     $0 --non-interactive       Use defaults, prompt only for password
     $0 --php-version 8.2 --database postgres --verbose
+
+Rollback:
+    ./rollback.sh              Remove all LEMP components
+    ./rollback.sh --keep-data  Remove packages but keep data
 EOF
 }
 
