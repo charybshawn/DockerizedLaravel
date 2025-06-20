@@ -47,11 +47,11 @@ read_buffer_size = {{ mysql_read_buffer_size }}
 read_rnd_buffer_size = {{ mysql_read_rnd_buffer_size }}
 
 #
-# Query Cache Configuration
+# Query Cache Configuration (removed in MySQL 8.0)
 #
-query_cache_limit = 128K
-query_cache_size = 64M
-query_cache_type = ON
+# query_cache_limit = 128K
+# query_cache_size = 64M
+# query_cache_type = ON
 
 #
 # Logging and Replication
@@ -59,7 +59,7 @@ query_cache_type = ON
 log_error = {{ mysql_log_error }}
 server-id = 1
 log_bin = /var/log/mysql/mysql-bin.log
-expire_logs_days = 10
+binlog_expire_logs_seconds = 864000
 max_binlog_size = 100M
 
 #
