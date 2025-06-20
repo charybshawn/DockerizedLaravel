@@ -10,6 +10,15 @@
   vars:
     # Define your Laravel sites here
     laravel_sites: []
+    
+    # Support single site creation from site manager
+    single_site_config:
+      - name: "{{ site_name | default('') }}"
+        domain: "{{ site_domain | default('') }}"
+        port: "{{ site_port | default('80') }}"
+        git_repo: "{{ git_repo | default('') }}"
+        git_branch: "{{ git_branch | default('main') }}"
+        php_version: "{{ php_version | default('8.3') }}"
       # Example site configuration:
       # - name: mysite1
       #   domain: mysite1.local
@@ -32,6 +41,14 @@
     - name: Set a flag that npm is installed
       set_fact:
         npm_installed: true
+    
+    - name: Merge single site config if provided
+      set_fact:
+        laravel_sites: "{{ laravel_sites + single_site_config }}"
+      when: 
+        - site_name is defined
+        - site_name != ""
+        - single_site_config[0].name != ""
   
   tasks:
     - name: Check if user has defined sites
