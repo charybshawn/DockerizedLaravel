@@ -1,0 +1,580 @@
+#!/bin/bash
+# Laravel Site Manager
+# Version: 2.0
+# Copyright: Laravel Development Environment Project
+#
+# Professional site management interface for Laravel applications
+
+set -euo pipefail
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source common functions
+source "${SCRIPT_DIR}/lib/common_functions.sh"
+
+# Configuration
+readonly VERSION="2.0"
+readonly SITES_CONFIG_DIR="/var/lib/nginx/sites"
+readonly NGINX_SITES_DIR="/etc/nginx/sites-available"
+readonly NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"
+readonly WEB_ROOT_BASE="/var/www"
+
+# Site management operations
+readonly OP_CREATE="create"
+readonly OP_DELETE="delete"
+readonly OP_ENABLE="enable"
+readonly OP_DISABLE="disable"
+readonly OP_STATUS="status"
+readonly OP_BACKUP="backup"
+readonly OP_RESTORE="restore"
+readonly OP_UPDATE="update"
+
+# Display header
+display_header() {
+    cat << EOF
+================================================================================
+Laravel Site Manager
+Version: ${VERSION}
+Copyright (c) $(date +%Y) Laravel Development Environment Project
+================================================================================
+
+EOF
+}
+
+# Display usage
+display_usage() {
+    cat << EOF
+Usage: $(basename "$0") OPERATION [OPTIONS]
+
+OPERATIONS:
+    create          Create a new Laravel site
+    delete          Delete an existing site
+    enable          Enable a disabled site
+    disable         Disable an active site
+    status          Show site status
+    backup          Backup a site
+    restore         Restore a site from backup
+    update          Update site from Git repository
+
+OPTIONS:
+    -n, --name NAME         Site name (required for most operations)
+    -d, --domain DOMAIN     Domain name (for create operation)
+    -p, --port PORT         Port number (default: 80)
+    --php-version VERSION   PHP version (default: 8.3)
+    --git-repo URL          Git repository URL
+    --git-branch BRANCH     Git branch (default: main)
+    --force                 Force operation without confirmation
+    -h, --help              Display this help message
+
+EXAMPLES:
+    # Create a new site
+    $(basename "$0") create --name myapp --domain myapp.local
+
+    # Create site from Git repository
+    $(basename "$0") create --name myapp --domain myapp.local \\
+        --git-repo https://github.com/user/myapp.git
+
+    # Delete a site
+    $(basename "$0") delete --name myapp
+
+    # Check site status
+    $(basename "$0") status --name myapp
+
+    # Backup a site
+    $(basename "$0") backup --name myapp
+
+For more information, see the documentation at:
+https://github.com/yourorg/laravel-dev-environment
+
+EOF
+}
+
+# Parse arguments
+parse_arguments() {
+    local operation=""
+    local site_name=""
+    local domain=""
+    local port="80"
+    local php_version="8.3"
+    local git_repo=""
+    local git_branch="main"
+    local force=false
+    
+    # First argument should be the operation
+    if [[ $# -eq 0 ]]; then
+        display_usage
+        exit $EXIT_GENERAL_ERROR
+    fi
+    
+    operation="$1"
+    shift
+    
+    # Parse remaining arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -n|--name)
+                site_name="$2"
+                shift 2
+                ;;
+            -d|--domain)
+                domain="$2"
+                shift 2
+                ;;
+            -p|--port)
+                port="$2"
+                shift 2
+                ;;
+            --php-version)
+                php_version="$2"
+                shift 2
+                ;;
+            --git-repo)
+                git_repo="$2"
+                shift 2
+                ;;
+            --git-branch)
+                git_branch="$2"
+                shift 2
+                ;;
+            --force)
+                force=true
+                shift
+                ;;
+            -h|--help)
+                display_usage
+                exit 0
+                ;;
+            *)
+                print_status "ERROR" "Unknown option: $1"
+                display_usage
+                exit $EXIT_GENERAL_ERROR
+                ;;
+        esac
+    done
+    
+    # Export variables
+    export OPERATION="$operation"
+    export SITE_NAME="$site_name"
+    export DOMAIN="${domain:-${site_name}.local}"
+    export PORT="$port"
+    export PHP_VERSION="$php_version"
+    export GIT_REPO="$git_repo"
+    export GIT_BRANCH="$git_branch"
+    export FORCE="$force"
+}
+
+# Validate site name
+validate_site_name() {
+    local name=$1
+    
+    if [[ -z "$name" ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Site name is required"
+    fi
+    
+    if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Invalid site name. Use only letters, numbers, hyphens, and underscores"
+    fi
+    
+    if [[ ${#name} -gt 32 ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Site name too long (maximum 32 characters)"
+    fi
+}
+
+# Validate domain name
+validate_domain() {
+    local domain=$1
+    
+    if [[ -z "$domain" ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Domain name is required"
+    fi
+    
+    # Basic domain validation
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$ ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Invalid domain name format"
+    fi
+}
+
+# Validate port
+validate_port() {
+    local port=$1
+    
+    if [[ ! "$port" =~ ^[0-9]+$ ]] || [[ $port -lt 1 ]] || [[ $port -gt 65535 ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Invalid port number. Must be between 1 and 65535"
+    fi
+    
+    # Check if port is already in use
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        log_warn "Port $port is already in use"
+        if [[ "$FORCE" != true ]]; then
+            handle_error $EXIT_VALIDATION_ERROR "Port $port is already in use. Use --force to override"
+        fi
+    fi
+}
+
+# Check if site exists
+site_exists() {
+    local name=$1
+    [[ -d "$SITES_CONFIG_DIR/$name" ]] || [[ -f "$NGINX_SITES_DIR/$name" ]]
+}
+
+# Create site
+create_site() {
+    local name="$SITE_NAME"
+    local domain="$DOMAIN"
+    local port="$PORT"
+    local php_version="$PHP_VERSION"
+    
+    print_status "INFO" "Creating Laravel site: $name"
+    log_audit "site_create" "$name" "initiated" "domain=$domain,port=$port,php=$php_version"
+    
+    # Validate inputs
+    validate_site_name "$name"
+    validate_domain "$domain"
+    validate_port "$port"
+    
+    # Check if site already exists
+    if site_exists "$name"; then
+        handle_error $EXIT_VALIDATION_ERROR "Site '$name' already exists"
+    fi
+    
+    # Acquire lock
+    if ! acquire_lock "site_${name}" 60; then
+        handle_error $EXIT_GENERAL_ERROR "Unable to acquire lock for site creation"
+    fi
+    
+    # Create site using Ansible
+    print_status "PROGRESS" "Configuring site with Ansible..."
+    
+    local extra_vars="site_name=$name site_domain=$domain site_port=$port php_version=$php_version"
+    if [[ -n "$GIT_REPO" ]]; then
+        extra_vars="$extra_vars git_repo=$GIT_REPO git_branch=$GIT_BRANCH"
+    fi
+    
+    if ! ansible-playbook \
+        -e "$extra_vars" \
+        -i "${SCRIPT_DIR}/inventory/hosts.yml" \
+        --tags "laravel" \
+        "${SCRIPT_DIR}/playbooks/manage_laravel_sites.yml"; then
+        release_lock "site_${name}"
+        handle_error $EXIT_GENERAL_ERROR "Failed to create site"
+    fi
+    
+    # Release lock
+    release_lock "site_${name}"
+    
+    # Display success information
+    print_status "SUCCESS" "Site '$name' created successfully"
+    log_audit "site_create" "$name" "success" "Site is accessible at http://$domain:$port"
+    
+    # Show site information
+    display_site_info "$name"
+}
+
+# Delete site
+delete_site() {
+    local name="$SITE_NAME"
+    
+    print_status "INFO" "Deleting Laravel site: $name"
+    log_audit "site_delete" "$name" "initiated" ""
+    
+    # Validate site name
+    validate_site_name "$name"
+    
+    # Check if site exists
+    if ! site_exists "$name"; then
+        handle_error $EXIT_VALIDATION_ERROR "Site '$name' does not exist"
+    fi
+    
+    # Confirmation
+    if [[ "$FORCE" != true ]]; then
+        print_status "WARNING" "This will permanently delete the site and all its data"
+        read -p "Are you sure you want to delete site '$name'? (yes/no): " confirmation
+        if [[ "$confirmation" != "yes" ]]; then
+            print_status "INFO" "Deletion cancelled"
+            exit 0
+        fi
+    fi
+    
+    # Backup before deletion
+    print_status "PROGRESS" "Creating backup before deletion..."
+    backup_site_internal "$name" "pre-deletion"
+    
+    # Disable site first
+    if [[ -L "$NGINX_ENABLED_DIR/$name" ]]; then
+        rm -f "$NGINX_ENABLED_DIR/$name"
+        systemctl reload nginx
+    fi
+    
+    # Remove Nginx configuration
+    if [[ -f "$NGINX_SITES_DIR/$name" ]]; then
+        rm -f "$NGINX_SITES_DIR/$name"
+    fi
+    
+    # Remove site directory
+    if [[ -d "$WEB_ROOT_BASE/$name" ]]; then
+        rm -rf "$WEB_ROOT_BASE/$name"
+    fi
+    
+    # Remove site configuration
+    if [[ -d "$SITES_CONFIG_DIR/$name" ]]; then
+        rm -rf "$SITES_CONFIG_DIR/$name"
+    fi
+    
+    # Drop database (if exists)
+    # Note: This would need to be implemented based on your database setup
+    
+    print_status "SUCCESS" "Site '$name' deleted successfully"
+    log_audit "site_delete" "$name" "success" "Site and all data removed"
+}
+
+# Enable site
+enable_site() {
+    local name="$SITE_NAME"
+    
+    print_status "INFO" "Enabling site: $name"
+    
+    validate_site_name "$name"
+    
+    if [[ ! -f "$NGINX_SITES_DIR/$name" ]]; then
+        handle_error $EXIT_VALIDATION_ERROR "Site configuration not found: $name"
+    fi
+    
+    if [[ -L "$NGINX_ENABLED_DIR/$name" ]]; then
+        print_status "INFO" "Site is already enabled"
+        return 0
+    fi
+    
+    # Create symlink
+    ln -s "$NGINX_SITES_DIR/$name" "$NGINX_ENABLED_DIR/$name"
+    
+    # Test configuration
+    if ! nginx -t; then
+        rm -f "$NGINX_ENABLED_DIR/$name"
+        handle_error $EXIT_GENERAL_ERROR "Nginx configuration test failed"
+    fi
+    
+    # Reload Nginx
+    systemctl reload nginx
+    
+    print_status "SUCCESS" "Site '$name' enabled"
+    log_audit "site_enable" "$name" "success" ""
+}
+
+# Disable site
+disable_site() {
+    local name="$SITE_NAME"
+    
+    print_status "INFO" "Disabling site: $name"
+    
+    validate_site_name "$name"
+    
+    if [[ ! -L "$NGINX_ENABLED_DIR/$name" ]]; then
+        print_status "INFO" "Site is already disabled"
+        return 0
+    fi
+    
+    # Remove symlink
+    rm -f "$NGINX_ENABLED_DIR/$name"
+    
+    # Reload Nginx
+    systemctl reload nginx
+    
+    print_status "SUCCESS" "Site '$name' disabled"
+    log_audit "site_disable" "$name" "success" ""
+}
+
+# Show site status
+show_site_status() {
+    local name="$SITE_NAME"
+    
+    if [[ -z "$name" ]]; then
+        # Show all sites
+        print_status "INFO" "Listing all Laravel sites"
+        "${SCRIPT_DIR}/laravel-site-inventory"
+    else
+        # Show specific site
+        validate_site_name "$name"
+        
+        if ! site_exists "$name"; then
+            handle_error $EXIT_VALIDATION_ERROR "Site '$name' does not exist"
+        fi
+        
+        display_site_info "$name"
+    fi
+}
+
+# Display site information
+display_site_info() {
+    local name=$1
+    local status_file="$SITES_CONFIG_DIR/$name/status.env"
+    local summary_file="$SITES_CONFIG_DIR/$name/summary.txt"
+    
+    print_status "INFO" "Site Information: $name"
+    echo "----------------------------------------"
+    
+    if [[ -f "$status_file" ]]; then
+        source "$status_file"
+        
+        echo "Status: $(site_is_enabled "$name" && echo "Enabled" || echo "Disabled")"
+        echo "Domain: $DOMAIN"
+        echo "Port: $PORT"
+        echo "PHP Version: $PHP_VERSION"
+        echo "Document Root: $DOCUMENT_ROOT"
+        echo "Nginx Config: $NGINX_CONFIG"
+        
+        if [[ -n "${GIT_REPO:-}" ]]; then
+            echo "Git Repository: $GIT_REPO"
+            echo "Git Branch: $GIT_BRANCH"
+        fi
+        
+        echo "Created: $CREATED"
+        echo ""
+        echo "Access URLs:"
+        echo "  - http://$DOMAIN$([ "$PORT" != "80" ] && echo ":$PORT")"
+        echo "  - http://$(hostname -I | awk '{print $1}')$([ "$PORT" != "80" ] && echo ":$PORT")"
+        
+        if [[ -f "$summary_file" ]]; then
+            echo ""
+            echo "For detailed information, see:"
+            echo "  $summary_file"
+        fi
+    else
+        print_status "WARNING" "Site configuration not found"
+    fi
+}
+
+# Check if site is enabled
+site_is_enabled() {
+    local name=$1
+    [[ -L "$NGINX_ENABLED_DIR/$name" ]]
+}
+
+# Internal backup function
+backup_site_internal() {
+    local name=$1
+    local type=${2:-"manual"}
+    local backup_dir="/var/backups/laravel-sites/$name"
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_name="${name}_${type}_${timestamp}"
+    
+    mkdir -p "$backup_dir"
+    
+    # Create backup archive
+    tar -czf "$backup_dir/${backup_name}.tar.gz" \
+        -C "$WEB_ROOT_BASE" \
+        --exclude="$name/node_modules" \
+        --exclude="$name/vendor" \
+        --exclude="$name/storage/logs/*" \
+        "$name" 2>/dev/null || true
+    
+    # Backup Nginx config
+    if [[ -f "$NGINX_SITES_DIR/$name" ]]; then
+        cp "$NGINX_SITES_DIR/$name" "$backup_dir/${backup_name}_nginx.conf"
+    fi
+    
+    # Backup site metadata
+    if [[ -d "$SITES_CONFIG_DIR/$name" ]]; then
+        cp -r "$SITES_CONFIG_DIR/$name" "$backup_dir/${backup_name}_metadata"
+    fi
+    
+    log_info "Backup created: $backup_dir/${backup_name}.tar.gz"
+}
+
+# Backup site
+backup_site() {
+    local name="$SITE_NAME"
+    
+    print_status "INFO" "Backing up site: $name"
+    log_audit "site_backup" "$name" "initiated" ""
+    
+    validate_site_name "$name"
+    
+    if ! site_exists "$name"; then
+        handle_error $EXIT_VALIDATION_ERROR "Site '$name' does not exist"
+    fi
+    
+    backup_site_internal "$name" "manual"
+    
+    print_status "SUCCESS" "Site '$name' backed up successfully"
+    log_audit "site_backup" "$name" "success" ""
+}
+
+# Update site
+update_site() {
+    local name="$SITE_NAME"
+    
+    print_status "INFO" "Updating site: $name"
+    log_audit "site_update" "$name" "initiated" ""
+    
+    validate_site_name "$name"
+    
+    if ! site_exists "$name"; then
+        handle_error $EXIT_VALIDATION_ERROR "Site '$name' does not exist"
+    fi
+    
+    # Check if update script exists
+    local update_script="/usr/local/bin/update-${name}.sh"
+    if [[ ! -x "$update_script" ]]; then
+        handle_error $EXIT_GENERAL_ERROR "Update script not found for site '$name'"
+    fi
+    
+    # Run update
+    print_status "PROGRESS" "Running update script..."
+    if ! "$update_script"; then
+        handle_error $EXIT_GENERAL_ERROR "Update failed"
+    fi
+    
+    print_status "SUCCESS" "Site '$name' updated successfully"
+    log_audit "site_update" "$name" "success" ""
+}
+
+# Main function
+main() {
+    display_header
+    
+    # Parse arguments
+    parse_arguments "$@"
+    
+    # Check root privileges for most operations
+    if [[ "$OPERATION" != "$OP_STATUS" ]]; then
+        check_root_privileges
+    fi
+    
+    # Execute operation
+    case "$OPERATION" in
+        "$OP_CREATE")
+            create_site
+            ;;
+        "$OP_DELETE")
+            delete_site
+            ;;
+        "$OP_ENABLE")
+            enable_site
+            ;;
+        "$OP_DISABLE")
+            disable_site
+            ;;
+        "$OP_STATUS")
+            show_site_status
+            ;;
+        "$OP_BACKUP")
+            backup_site
+            ;;
+        "$OP_RESTORE")
+            print_status "ERROR" "Restore operation not yet implemented"
+            exit $EXIT_GENERAL_ERROR
+            ;;
+        "$OP_UPDATE")
+            update_site
+            ;;
+        *)
+            print_status "ERROR" "Unknown operation: $OPERATION"
+            display_usage
+            exit $EXIT_GENERAL_ERROR
+            ;;
+    esac
+}
+
+# Execute main
+main "$@"

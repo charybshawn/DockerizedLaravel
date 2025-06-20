@@ -1,0 +1,31 @@
+---
+# Laravel site role handlers
+
+- name: nginx config test and reload
+  block:
+    - name: Test Nginx configuration
+      command: nginx -t
+      register: nginx_test_result
+      become: yes
+      
+    - name: Display config test results
+      debug:
+        msg: |
+          ✅ Nginx Configuration Test: PASSED
+          {{ nginx_test_result.stderr }}
+      when: nginx_test_result.rc == 0
+      
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
+      become: yes
+      when: nginx_test_result.rc == 0
+      
+    - name: Notify about config test failure
+      fail:
+        msg: |
+          ❌ Nginx configuration test FAILED:
+          {{ nginx_test_result.stderr }}
+          Please check the configuration files for syntax errors.
+      when: nginx_test_result.rc != 0

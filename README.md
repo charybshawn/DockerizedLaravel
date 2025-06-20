@@ -1,52 +1,94 @@
 # Laravel Development Environment
 
-This is an Ansible-based Laravel development environment setup tool. It automates the process of setting up a LEMP stack (Linux, Nginx, MySQL, PostgreSQL, PHP) optimized for Laravel development.
+## Enterprise-Grade Development Environment Management System
 
-## Features
+A professional Ansible-based automation platform for deploying and managing Laravel development environments. This system provides comprehensive tooling for creating, configuring, and maintaining multiple Laravel applications with enterprise-level reliability and security.
 
-- Complete LEMP stack installation (Linux, Nginx, MySQL, PostgreSQL, PHP)
-- Multiple PHP version support (8.1, 8.2, 8.3)
-- Node.js LTS installation (configurable version)
-- Composer installation
-- Multiple Laravel site management
-- Git repository integration
-- Custom port configuration for sites
-- Database setup and configuration (MySQL and PostgreSQL)
-- Adminer database management web interface
-- Easy-to-use shell scripts for common tasks
-- Rollback functionality for clean uninstallation
-- Smart PHP version detection and compatibility checking
-- Automatic database system selection and configuration
-- Enhanced error handling and validation
+## Key Features
 
-## Prerequisites
+### Infrastructure Management
+- **Multi-Stack Support**: Complete LEMP stack with MySQL, PostgreSQL, and SQLite
+- **PHP Version Management**: Support for PHP 7.4, 8.0, 8.1, 8.2, 8.3, and 8.4
+- **Container-Ready**: Optimized configuration for containerized deployments
+- **High Performance**: Nginx with optimized configurations for Laravel applications
 
-- Ubuntu/Debian-based Linux system
-- sudo access
-- Basic knowledge of Linux command line
+### Development Tools
+- **Automated Site Creation**: Professional site management interface
+- **Git Integration**: Seamless repository cloning and branch management
+- **Database Management**: Integrated Adminer with security controls
+- **Asset Pipeline**: Node.js LTS with npm/yarn support
+- **Dependency Management**: Composer 2.x with optimization features
+
+### Enterprise Features
+- **Security-First Design**: Ansible Vault integration, secure password generation
+- **Comprehensive Logging**: Structured logging with audit trails
+- **Health Monitoring**: Built-in health checks and status reporting
+- **Backup & Recovery**: Automated backup procedures with retention policies
+- **Configuration Validation**: Pre-flight checks and validation frameworks
+- **Professional CLI**: Consistent, documented command-line interfaces
+
+## System Requirements
+
+### Minimum Requirements
+- **Operating System**: Ubuntu 20.04+ or Debian 10+
+- **CPU**: 2 cores (4+ recommended)
+- **Memory**: 2GB RAM (4GB+ recommended)
+- **Storage**: 10GB available space
+- **Network**: Internet connectivity for package installation
+- **Privileges**: Root or sudo access
+
+### Supported Platforms
+- Ubuntu 20.04 LTS, 22.04 LTS, 24.04 LTS
+- Debian 10 (Buster), 11 (Bullseye), 12 (Bookworm)
+- WSL2 (Windows Subsystem for Linux)
+- Cloud platforms: AWS EC2, Google Cloud, Azure, DigitalOcean
 
 ## Installation
 
-1. Clone this repository:
+### Quick Start
+
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/yourusername/laravel-dev-environment.git
    cd laravel-dev-environment
    ```
 
-2. Run the installation script:
+2. **Run the installer:**
    ```bash
-   sudo ./install.sh
+   sudo ./laravel-env-installer --mode full
    ```
 
-   Additional options:
-   ```bash
-   sudo ./install.sh -v              # Run with verbose output
-   sudo ./install.sh -r              # Run rollback first, then install
-   sudo ./install.sh -v -r           # Run rollback first with verbose output
-   sudo ./install.sh --help          # Show all available options
-   ```
+### Installation Options
 
-This will install all necessary dependencies and configure the server for Laravel development.
+```bash
+# Full installation with all components
+sudo ./laravel-env-installer --mode full
+
+# Custom installation with component selection
+sudo ./laravel-env-installer --mode custom
+
+# Validate existing installation
+sudo ./laravel-env-installer --mode validate
+
+# Perform system health check
+sudo ./laravel-env-installer --mode health
+
+# View all options
+./laravel-env-installer --help
+```
+
+### Advanced Installation
+
+```bash
+# Installation with custom configuration
+sudo ./laravel-env-installer --mode full --config custom.yml
+
+# Dry run to preview changes
+sudo ./laravel-env-installer --mode full --dry-run
+
+# Verbose output for debugging
+sudo ./laravel-env-installer --mode full --verbose
+```
 
 ## Uninstallation
 
@@ -62,23 +104,68 @@ This will:
 - Remove created directories
 - Clean up system settings
 
-## Setting Up a Laravel Site
+## Site Management
 
-### Using the setup-site.sh Script
+### Creating a Laravel Site
 
-The simplest way to create a new Laravel site is using the provided `setup-site.sh` script:
-
+#### Interactive Mode
 ```bash
-sudo ./setup-site.sh
+sudo ./laravel-site-manager create --name myapp --domain myapp.local
 ```
 
-The script will guide you through an interactive process to:
-- Enter site name
-- Configure domain name (defaults to sitename.local)
-- Set port number (defaults to 80)
-- Choose PHP version
-- Optionally set up from a Git repository
-- Configure automatic updates
+#### From Git Repository
+```bash
+sudo ./laravel-site-manager create \
+  --name myapp \
+  --domain myapp.local \
+  --git-repo https://github.com/username/myapp.git \
+  --git-branch main
+```
+
+#### With Custom Configuration
+```bash
+sudo ./laravel-site-manager create \
+  --name myapp \
+  --domain myapp.local \
+  --port 8080 \
+  --php-version 8.3
+```
+
+### Managing Sites
+
+#### List All Sites
+```bash
+# Table format with system status
+sudo ./laravel-site-inventory
+
+# JSON output for automation
+sudo ./laravel-site-inventory --format json
+
+# Detailed site information
+sudo ./laravel-site-inventory --format detailed
+
+# Export to CSV
+sudo ./laravel-site-inventory --format csv > sites.csv
+```
+
+#### Site Operations
+```bash
+# Enable/disable sites
+sudo ./laravel-site-manager enable --name myapp
+sudo ./laravel-site-manager disable --name myapp
+
+# Check site status
+sudo ./laravel-site-manager status --name myapp
+
+# Backup site
+sudo ./laravel-site-manager backup --name myapp
+
+# Update site from Git
+sudo ./laravel-site-manager update --name myapp
+
+# Delete site (with confirmation)
+sudo ./laravel-site-manager delete --name myapp
+```
 
 This will:
 - Create a new site directory at `/var/www/sitename`
@@ -191,47 +278,97 @@ You can customize various aspects of the environment:
 - Modify templates in the `templates/` directory
 - Edit role defaults in `roles/*/defaults/main.yml`
 
-## Troubleshooting
+## Monitoring and Health Checks
 
-Common issues:
-
-1. **Permission problems**: Run the installation script with sudo
-2. **Domain not accessible**: Add the domain to your local hosts file
-3. **Database connection issues**: Check your .env file configuration
-4. **Port conflicts**: Ensure the port you want to use isn't already in use by another service
-5. **Git authentication failures**: For private GitHub repositories, use SSH URLs (git@github.com:username/repo.git) instead of HTTPS URLs
-6. **PHP version conflicts**: The script will detect and warn about PHP version incompatibilities
-7. **Database system issues**: Make sure the selected database system is installed and running
-
-## Database Management
-
-The environment comes with [Adminer](https://www.adminer.org/), a lightweight database management tool that supports both MySQL and PostgreSQL.
-
-### Accessing Adminer
-
-Once your Laravel environment is set up, you can access Adminer at:
-
-```
-http://db.hostname.local/
+### System Health Check
+```bash
+sudo ./laravel-env-installer --mode health
 ```
 
-(where hostname is your server's hostname)
+### Service Monitoring
+```bash
+# Check Nginx status
+curl http://localhost/nginx_status
 
-Default credentials:
-- Username: admin
-- Password: admin (or the one you provided during setup)
+# View system logs
+sudo tail -f /var/log/laravel-env/operations.log
 
-With Adminer you can:
-- Create, modify, and delete databases and tables
-- Run SQL queries
-- Import and export data
-- Manage users and permissions
-- View database structure
+# Monitor site-specific logs
+sudo tail -f /var/log/nginx/myapp_*.log
+```
 
-### Customizing Adminer
+### Performance Monitoring
+- Built-in health check endpoints for each site
+- Nginx status page for connection monitoring
+- Structured logging for troubleshooting
+- Resource usage tracking
 
-You can customize Adminer by modifying the settings in `playbooks/setup_laravel_server.yml`. Options include:
-- Changing the authentication credentials
-- Restricting access by IP address
-- Enabling/disabling specific features
-- Changing the theme
+## Security Features
+
+- **Ansible Vault**: Encrypted storage for sensitive data
+- **Secure Password Generation**: Automated strong password creation
+- **Input Validation**: Comprehensive validation for all user inputs
+- **Audit Logging**: Complete audit trail of all operations
+- **File Permissions**: Automated permission management
+- **Security Headers**: Pre-configured security headers for all sites
+
+For detailed security information, see [SECURITY.md](SECURITY.md).
+
+## Documentation
+
+### Available Guides
+
+- **[OPERATIONS_GUIDE.md](OPERATIONS_GUIDE.md)**: Comprehensive operations manual
+- **[NGINX_GUIDE.md](NGINX_GUIDE.md)**: Detailed Nginx configuration guide
+- **[SECURITY.md](SECURITY.md)**: Security policies and best practices
+- **API Documentation**: Available in `docs/api/`
+- **Architecture Diagrams**: Available in `docs/architecture/`
+
+### Quick Reference
+
+```bash
+# Installation
+sudo ./laravel-env-installer --mode full
+
+# Create site
+sudo ./laravel-site-manager create --name myapp --domain myapp.local
+
+# List sites
+sudo ./laravel-site-inventory
+
+# Health check
+sudo ./laravel-env-installer --mode health
+
+# View logs
+sudo tail -f /var/log/laravel-env/operations.log
+```
+
+## Support
+
+### Getting Help
+
+1. **Documentation**: Start with the guides in this repository
+2. **Command Help**: Use `--help` flag with any command
+3. **Logs**: Check `/var/log/laravel-env/` for detailed logs
+4. **Issues**: Report bugs at [GitHub Issues](https://github.com/yourorg/laravel-dev-environment/issues)
+
+### Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Laravel Framework
+- Ansible Community
+- Nginx Team
+- PHP Development Team
+
+---
+
+**Version**: 2.0  
+**Last Updated**: March 2024  
+**Maintainers**: Laravel Development Environment Team

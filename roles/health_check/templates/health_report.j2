@@ -1,0 +1,60 @@
+Laravel Development Environment - Health Check Report
+Generated: {{ check_timestamp }}
+================================================================
+
+SYSTEM INFORMATION
+------------------
+Hostname: {{ system_info.hostname }}
+Operating System: {{ system_info.os }}
+Kernel: {{ system_info.kernel }}
+Architecture: {{ system_info.architecture }}
+Total Memory: {{ system_info.memory_total }}
+CPU Cores: {{ system_info.cpu_cores }}
+
+PERFORMANCE METRICS
+-------------------
+Disk Usage: {{ performance_metrics.disk_usage }}
+Memory Usage: {{ performance_metrics.memory_usage }}
+Load Average: {{ performance_metrics.load_average }}
+
+SERVICE STATUS
+--------------
+{% for service_name, service_info in service_status.items() %}
+{% if service_name.endswith('.service') %}
+{{ service_name | regex_replace('\\.service$', '') }}: {{ service_info.state }}
+{% endif %}
+{% endfor %}
+
+NETWORK CONNECTIVITY
+--------------------
+{% for service in health_check_services %}
+{% if service.port is defined %}
+{{ service.name }} (port {{ service.port }}): {{ 'OK' if service.name + '.service' in service_status and service_status[service.name + '.service'].state == 'running' else 'FAILED' }}
+{% endif %}
+{% endfor %}
+
+RECOMMENDATIONS
+---------------
+{% if performance_metrics.disk_usage | regex_replace('%', '') | int > health_check_thresholds.disk_usage %}
+⚠️  High disk usage detected ({{ performance_metrics.disk_usage }}). Consider cleaning up log files or temporary data.
+{% endif %}
+{% if performance_metrics.memory_usage | int > health_check_thresholds.memory_usage %}
+⚠️  High memory usage detected ({{ performance_metrics.memory_usage }}%). Consider optimizing applications or increasing memory.
+{% endif %}
+{% if performance_metrics.load_average | float > health_check_thresholds.load_average %}
+⚠️  High system load detected ({{ performance_metrics.load_average }}). Check for resource-intensive processes.
+{% endif %}
+
+{% set failed_services = [] %}
+{% for service in health_check_services %}
+{% if service.name + '.service' not in service_status or service_status[service.name + '.service'].state != 'running' %}
+{% set _ = failed_services.append(service.name) %}
+{% endif %}
+{% endfor %}
+
+{% if failed_services | length > 0 %}
+⚠️  Services not running: {{ failed_services | join(', ') }}
+{% endif %}
+
+END OF REPORT
+================================================================

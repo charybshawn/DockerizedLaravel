@@ -1,31 +1,119 @@
+# Laravel site: {{ site_name | default('laravel') }}
+# Generated: {{ ansible_date_time.iso8601 }}
+# Configuration managed by Ansible
+
 server {
     listen {{ port | default('80') }};
     server_name {{ server_name }};
     root {{ root_directory }};
 
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
+    # Site-specific logging
+    access_log /var/log/nginx/{{ site_name | default('laravel') }}_access.log main;
+    error_log /var/log/nginx/{{ site_name | default('laravel') }}_error.log warn;
 
-    index index.php;
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
 
+    index index.php index.html;
     charset utf-8;
 
+    # Laravel application
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    error_page 404 /index.php;
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php{{ php_version | default('8.1') }}-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
+    # Vite asset handling (for Laravel with Vite)
+    location /build/ {
+        expires 1M;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff";
+        
+        # Handle Vite HMR in development
+        location ~* \.(js|css|map)$ {
+            expires 1h;
+        }
     }
 
-    location ~ /\.(?!well-known).* {
+    # Static assets caching
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1M;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # Common static files
+    location = /favicon.ico { 
+        access_log off; 
+        log_not_found off; 
+        expires 1d;
+    }
+    
+    location = /robots.txt  { 
+        access_log off; 
+        log_not_found off; 
+        expires 1d;
+    }
+
+    # Laravel health check endpoint
+    location = /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Error pages
+    error_page 404 /index.php;
+    error_page 500 502 503 504 /50x.html;
+
+    # PHP processing
+    location ~ \.php$ {
+        try_files $uri =404;
+        
+        fastcgi_pass unix:/var/run/php/php{{ php_version | default('8.1') }}-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        
+        # Enhanced FastCGI parameters
+        include fastcgi_params;
+        fastcgi_param PHP_VALUE "upload_max_filesize=64M \n post_max_size=64M";
+        fastcgi_param HTTPS $https if_not_empty;
+        
+        # Performance settings
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 256 16k;
+        fastcgi_busy_buffers_size 256k;
+        fastcgi_temp_file_write_size 256k;
+        fastcgi_read_timeout 240;
+    }
+
+    # Deny access to hidden files and sensitive directories
+    location ~ /\.(?!well-known) {
         deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Deny access to sensitive Laravel files
+    location ~ /(\.env|\.git|composer\.(json|lock)|package\.(json|lock)|artisan|storage/.*\.php) {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Block access to storage and bootstrap/cache directories
+    location ^~ /storage/ {
+        deny all;
+    }
+
+    location ^~ /bootstrap/cache/ {
+        deny all;
+    }
+
+    # Allow Laravel's public storage links
+    location ^~ /storage/app/public/ {
+        try_files $uri =404;
     }
 } 

@@ -1,0 +1,155 @@
+LARAVEL SITE CONFIGURATION SUMMARY
+===================================
+Generated: {{ creation_time }}
+Site: {{ site_config.name }}
+
+BASIC INFORMATION
+-----------------
+Site Name: {{ site_config.name }}
+Domain: {{ site_config.domain }}
+Port: {{ site_config.port }}
+Status: Active
+Created: {{ creation_time }}
+
+ACCESS INFORMATION
+------------------
+Primary URL: http://{{ site_config.domain }}{% if site_config.port != '80' %}:{{ site_config.port }}{% endif %}/
+IP Access: http://{{ ansible_default_ipv4.address }}{% if site_config.port != '80' %}:{{ site_config.port }}{% endif %}/
+Document Root: {{ site_config.document_root }}
+
+NGINX CONFIGURATION
+-------------------
+Config File: {{ site_config.nginx_config }}
+Enabled: /etc/nginx/sites-enabled/{{ site_config.name }}
+Status: {{ 'Enabled' if ansible_facts.services['nginx.service'].state == 'running' else 'Stopped' }}
+
+PHP CONFIGURATION
+-----------------
+PHP Version: {{ site_config.php_version }}
+PHP-FPM Socket: /run/php/php{{ site_config.php_version }}-fpm.sock
+PHP-FPM Status: {{ 'Running' if ansible_facts.services['php' + site_config.php_version + '-fpm.service'].state == 'running' else 'Stopped' }}
+
+{% if site_config.git_repo != 'Fresh Laravel installation' %}
+GIT REPOSITORY
+--------------
+Repository: {{ site_config.git_repo }}
+Branch: {{ site_config.git_branch }}
+Auto-Update: {{ site_config.auto_update }}
+{% if site_config.auto_update == 'yes' %}
+Update Script: /usr/local/bin/update-{{ site_config.name }}.sh
+Update Log: /var/log/{{ site_config.name }}-updates.log
+Update Schedule: Every 6 hours (cron)
+{% endif %}
+{% else %}
+INSTALLATION TYPE
+-----------------
+Type: Fresh Laravel installation
+Repository: None
+{% endif %}
+
+DATABASE CONFIGURATION
+----------------------
+Connection Type: {{ site_config.database.connection }}
+Database Name: {{ site_config.database.name }}
+Host: {{ site_config.database.host }}
+Port: {{ site_config.database.port }}
+Laravel .env: /var/www/{{ site_config.name }}/.env
+
+FILE LOCATIONS
+--------------
+Site Directory: /var/www/{{ site_config.name }}/
+Public Directory: {{ site_config.document_root }}
+Laravel .env: /var/www/{{ site_config.name }}/.env
+Composer.json: /var/www/{{ site_config.name }}/composer.json
+Artisan: /var/www/{{ site_config.name }}/artisan
+
+LOGGING
+-------
+Access Log: /var/log/nginx/{{ site_config.name }}_access.log
+Error Log: /var/log/nginx/{{ site_config.name }}_error.log
+Laravel Log: /var/www/{{ site_config.name }}/storage/logs/laravel.log
+
+PERMISSIONS
+-----------
+Site Owner: {{ ansible_user_id }}
+Web Server User: www-data
+Storage Permissions: 775 (writable by web server)
+Bootstrap/Cache Permissions: 775 (writable by web server)
+
+QUICK COMMANDS
+--------------
+Test Site:
+  curl -H "Host: {{ site_config.domain }}" http://localhost{% if site_config.port != '80' %}:{{ site_config.port }}{% endif %}/
+
+View Logs:
+  tail -f /var/log/nginx/{{ site_config.name }}_*.log
+  tail -f /var/www/{{ site_config.name }}/storage/logs/laravel.log
+
+Laravel Commands:
+  cd /var/www/{{ site_config.name }}
+  php artisan migrate
+  php artisan tinker
+  php artisan queue:work
+  php artisan cache:clear
+
+{% if site_config.git_repo != 'Fresh Laravel installation' %}
+Update Site:
+  {% if site_config.auto_update == 'yes' %}
+  /usr/local/bin/update-{{ site_config.name }}.sh
+  {% else %}
+  cd /var/www/{{ site_config.name }}
+  git pull origin {{ site_config.git_branch }}
+  composer install --no-dev --optimize-autoloader
+  npm install && npm run build
+  php artisan migrate --force
+  php artisan config:cache
+  php artisan route:cache
+  {% endif %}
+{% endif %}
+
+Restart Services:
+  sudo systemctl restart nginx
+  sudo systemctl restart php{{ site_config.php_version }}-fpm
+
+TROUBLESHOOTING
+---------------
+Check Nginx Config:
+  sudo nginx -t
+
+Check PHP-FPM Status:
+  sudo systemctl status php{{ site_config.php_version }}-fpm
+
+Check Site Permissions:
+  ls -la /var/www/{{ site_config.name }}/
+  ls -la {{ site_config.document_root }}
+
+Test PHP Processing:
+  echo "<?php phpinfo(); ?>" | sudo tee {{ site_config.document_root }}/test.php
+  curl -H "Host: {{ site_config.domain }}" http://localhost{% if site_config.port != '80' %}:{{ site_config.port }}{% endif %}/test.php
+
+SECURITY NOTES
+--------------
+- Site runs under www-data user for security
+- Hidden files (.env, .git) are protected by Nginx
+- PHP display_errors should be OFF in production
+- Consider enabling SSL/TLS for production use
+- Regular backups are recommended
+
+MAINTENANCE
+-----------
+Regular Tasks:
+1. Monitor log files for errors
+2. Keep Laravel and dependencies updated
+3. Monitor disk space usage
+4. Backup database regularly
+5. Review and rotate log files
+
+{% if site_config.auto_update == 'yes' %}
+Auto-Update Monitoring:
+- Check update log: tail -f /var/log/{{ site_config.name }}-updates.log
+- Manual update: sudo /usr/local/bin/update-{{ site_config.name }}.sh
+- Disable auto-update: sudo crontab -e (remove {{ site_config.name }} entry)
+{% endif %}
+
+For more information about this Laravel site, run:
+ansible-playbook --tags health playbooks/setup_laravel_server_improved.yml

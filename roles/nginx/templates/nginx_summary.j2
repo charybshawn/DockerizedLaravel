@@ -1,0 +1,83 @@
+NGINX INSTALLATION SUMMARY
+==========================
+Generated: {{ installation_time }}
+Host: {{ ansible_hostname }}
+
+INSTALLATION DETAILS
+--------------------
+Nginx Version: {{ nginx_version_info }}
+Installation Path: {{ nginx_conf_dir }}
+User/Group: {{ nginx_user }}/{{ nginx_group }}
+PID File: {{ nginx_run_dir }}/nginx.pid
+
+CONFIGURATION SETTINGS
+----------------------
+Worker Processes: {{ nginx_worker_processes }}
+Worker Connections: {{ nginx_worker_connections }}
+Worker RLIMIT NOFILE: {{ nginx_worker_rlimit_nofile }}
+Keep-alive Timeout: {{ nginx_keepalive_timeout }}s
+Client Max Body Size: {{ nginx_client_max_body_size }}
+Server Tokens: {{ nginx_server_tokens | ternary('Enabled', 'Disabled') }}
+
+DIRECTORIES
+-----------
+Configuration: {{ nginx_conf_dir }}
+Sites Available: {{ nginx_sites_available_dir }}
+Sites Enabled: {{ nginx_sites_enabled_dir }}
+Logs: {{ nginx_log_dir }}
+Cache: {{ nginx_cache_dir }}
+Site Information: {{ nginx_site_info_dir }}
+
+SECURITY FEATURES
+-----------------
+{% if nginx_rate_limit_enabled %}✅ Rate Limiting: Enabled ({{ nginx_rate_limit_requests }}){% else %}❌ Rate Limiting: Disabled{% endif %}
+✅ Server Tokens: Hidden
+✅ Security Headers: Enabled
+✅ Hidden Files Protection: Enabled
+{% if nginx_status_enabled %}✅ Status Monitoring: Enabled{% else %}❌ Status Monitoring: Disabled{% endif %}
+
+PERFORMANCE FEATURES
+--------------------
+✅ Sendfile: {{ nginx_sendfile | ternary('Enabled', 'Disabled') }}
+✅ TCP No-Push: {{ nginx_tcp_nopush | ternary('Enabled', 'Disabled') }}
+✅ TCP No-Delay: {{ nginx_tcp_nodelay | ternary('Enabled', 'Disabled') }}
+✅ Gzip Compression: {{ nginx_gzip | ternary('Enabled', 'Disabled') }}
+✅ Static File Caching: Enabled (1 month)
+
+MONITORING ENDPOINTS
+-------------------
+{% if nginx_status_enabled %}
+Status Page: http://localhost{{ nginx_status_path }}
+Health Check: http://localhost/health
+Server Info: http://localhost/server-info
+Allowed IPs: {{ nginx_status_allowed_ips | join(', ') }}
+{% else %}
+Status monitoring is disabled
+{% endif %}
+
+LOG FILES
+---------
+Access Log: {{ nginx_log_dir }}/access.log
+Error Log: {{ nginx_log_dir }}/error.log (level: {{ nginx_error_log_level }})
+Site Logs: {{ nginx_log_dir }}/sites/
+
+SITE MANAGEMENT
+---------------
+To create a new Laravel site:
+1. Add configuration to {{ nginx_sites_available_dir }}/
+2. Enable with: ln -s {{ nginx_sites_available_dir }}/sitename {{ nginx_sites_enabled_dir }}/sitename
+3. Test configuration: nginx -t
+4. Reload: systemctl reload nginx
+
+Site information will be stored in: {{ nginx_site_info_dir }}/
+
+NEXT STEPS
+----------
+1. Create Laravel site configurations
+2. Configure PHP-FPM integration
+3. Set up SSL certificates (if needed)
+4. Monitor logs for any issues
+5. Run health checks to verify operation
+
+For Laravel sites, use the laravel_site role or run:
+ansible-playbook playbooks/manage_laravel_sites.yml

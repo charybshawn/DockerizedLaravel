@@ -1,0 +1,62 @@
+---
+# Health check role defaults
+
+# Services to check
+health_check_services:
+  - name: nginx
+    port: 80
+    process: nginx
+    config_test: "nginx -t"
+  - name: mysql
+    port: 3306
+    process: mysqld
+    config_test: "mysqladmin ping"
+  - name: postgresql
+    port: 5432
+    process: postgres
+    config_test: "pg_isready"
+
+# PHP-FPM services (dynamic based on installed versions)
+health_check_php_versions: []
+
+# Health check timeouts
+health_check_timeout: 30
+health_check_retries: 3
+health_check_delay: 5
+
+# Monitoring URLs to check
+health_check_urls: []
+
+# Directory checks
+health_check_directories:
+  - path: /var/www
+    permissions: "755"
+    owner: root
+    group: www-data
+  - path: /var/log
+    permissions: "755"
+    owner: root
+    group: root
+
+# File checks
+health_check_files:
+  - path: /etc/nginx/nginx.conf
+    permissions: "644"
+    owner: root
+    group: root
+  - path: /etc/php/{{ default_php_version | default('8.3') }}/fpm/pool.d/www.conf
+    permissions: "644"
+    owner: root
+    group: root
+
+# Performance thresholds
+health_check_thresholds:
+  disk_usage: 90  # percentage
+  memory_usage: 90  # percentage
+  load_average: 4.0
+
+# Notification settings
+health_check_notifications:
+  enabled: false
+  email: ""
+  webhook: ""

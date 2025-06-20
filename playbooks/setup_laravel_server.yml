@@ -4,7 +4,6 @@
 - name: Configure Laravel development environment
   hosts: localhost
   connection: local
-  become: yes
   gather_facts: yes
   
   vars:
@@ -18,6 +17,7 @@
       debug:
         msg: "Setting up Laravel environment for user: {{ current_user }}"
       when: verbose_mode | bool
+      tags: ['info']
 
     - name: Set initial database variables
       set_fact:
@@ -186,6 +186,8 @@
         update_cache: yes
         cache_valid_time: 3600
       when: ansible_os_family == "Debian"
+      become: yes
+      tags: ['packages', 'setup']
       
     - name: Install essential packages
       apt:
@@ -207,6 +209,8 @@
           - cron
         state: present
       when: ansible_os_family == "Debian"
+      become: yes
+      tags: ['packages', 'setup']
       
     # PHP Installation
     - name: Add PHP repository
@@ -214,6 +218,8 @@
         repo: ppa:ondrej/php
         state: present
       when: ansible_distribution == "Ubuntu"
+      become: yes
+      tags: ['php', 'repositories']
     
     - name: Install all requested PHP versions
       block:
@@ -242,10 +248,15 @@
           loop_control:
             loop_var: php_version
           when: ansible_os_family == "Debian"
+          become: yes
+          tags: ['php', 'packages']
           
         - name: Set default PHP version alternative priority
           shell: update-alternatives --set php /usr/bin/php{{ default_php_version }}
           ignore_errors: yes
+          become: yes
+          tags: ['php', 'configuration']
+          changed_when: false
 
         - name: Start and enable PHP-FPM for each version
           service:
@@ -255,6 +266,8 @@
           loop: "{{ php_version_list }}"
           loop_control:
             loop_var: item
+          become: yes
+          tags: ['php', 'services']
 
         - name: Ensure PHP-FPM configuration directories exist
           file:

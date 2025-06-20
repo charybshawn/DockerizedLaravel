@@ -1,0 +1,97 @@
+---
+# PHP installation and configuration tasks
+
+- name: Add PHP repository (Ubuntu)
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+  when: ansible_distribution == "Ubuntu"
+  become: yes
+  tags: ['php', 'repositories']
+
+- name: Update package cache after adding PHP repository
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  become: yes
+  tags: ['php', 'packages']
+
+- name: Install PHP versions and extensions
+  apt:
+    name: "{{ item.0 }}-{{ item.1 }}"
+    state: present
+  loop: "{{ php_versions | product(['php'] + php_extensions) | list }}"
+  when: ansible_os_family == "Debian"
+  become: yes
+  tags: ['php', 'packages']
+  notify:
+    - restart php-fpm services
+
+- name: Create PHP-FPM pool configuration directories
+  file:
+    path: "/etc/php/{{ item }}/fpm/pool.d"
+    state: directory
+    mode: '0755'
+  loop: "{{ php_versions }}"
+  become: yes
+  tags: ['php', 'configuration']
+
+- name: Configure PHP-FPM pools
+  template:
+    src: fpm-pool.conf.j2
+    dest: "/etc/php/{{ item.0 }}/fpm/pool.d/{{ item.1.name }}.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ php_versions | product(php_fpm_pools) | list }}"
+  become: yes
+  tags: ['php', 'configuration']
+  notify:
+    - restart php-fpm services
+
+- name: Configure PHP settings for development
+  lineinfile:
+    path: "/etc/php/{{ item.0 }}/{{ item.1 }}/php.ini"
+    regexp: "^{{ item.2.key }}\\s*="
+    line: "{{ item.2.key }} = {{ item.2.value }}"
+    backup: yes
+  loop: >
+    {{ php_versions | product(['fpm', 'cli']) | 
+       product(php_settings.items() | list + php_development_settings.items() | list) | 
+       list }}
+  become: yes
+  tags: ['php', 'configuration']
+  notify:
+    - restart php-fpm services
+
+- name: Set default PHP version
+  alternatives:
+    name: php
+    path: "/usr/bin/php{{ default_php_version }}"
+    priority: 100
+  become: yes
+  tags: ['php', 'configuration']
+
+- name: Start and enable PHP-FPM services
+  service:
+    name: "php{{ item }}-fpm"
+    state: started
+    enabled: yes
+  loop: "{{ php_versions }}"
+  become: yes
+  tags: ['php', 'services']
+
+- name: Verify PHP installation
+  command: "php{{ item }} --version"
+  loop: "{{ php_versions }}"
+  register: php_version_check
+  changed_when: false
+  failed_when: php_version_check.rc != 0
+  tags: ['php', 'verification']
+
+- name: Display PHP versions
+  debug:
+    msg: "PHP {{ item.item }} installed: {{ item.stdout_lines[0] }}"
+  loop: "{{ php_version_check.results }}"
+  tags: ['php', 'info']

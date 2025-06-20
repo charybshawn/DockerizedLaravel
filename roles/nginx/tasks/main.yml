@@ -1,0 +1,190 @@
+---
+# Nginx installation and configuration tasks
+
+- name: 🌐 Installing Nginx web server
+  debug:
+    msg: |
+      📦 Installing Nginx with the following configuration:
+      - Worker processes: {{ nginx_worker_processes }}
+      - Worker connections: {{ nginx_worker_connections }}
+      - Client max body size: {{ nginx_client_max_body_size }}
+      - Server tokens hidden: {{ nginx_server_tokens }}
+  tags: ['nginx', 'info']
+
+- name: Install Nginx packages
+  apt:
+    name: "{{ nginx_packages }}"
+    state: present
+    update_cache: yes
+  become: yes
+  notify: restart nginx
+  tags: ['nginx', 'packages']
+
+- name: Create Nginx directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+  loop:
+    - "{{ nginx_cache_dir }}"
+    - "{{ nginx_site_info_dir }}"
+    - "{{ nginx_log_dir }}/sites"
+  tags: ['nginx', 'directories']
+
+- name: 🔧 Configuring main nginx.conf
+  debug:
+    msg: "Applying optimized Nginx configuration with {{ nginx_worker_processes }} workers"
+  tags: ['nginx', 'configuration']
+
+- name: Configure main nginx.conf
+  template:
+    src: nginx.conf.j2
+    dest: "{{ nginx_conf_dir }}/nginx.conf"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  become: yes
+  notify: 
+    - validate nginx config
+    - restart nginx
+  tags: ['nginx', 'configuration']
+
+- name: Remove default Nginx site
+  file:
+    path: "{{ item }}"
+    state: absent
+  become: yes
+  loop:
+    - "{{ nginx_sites_enabled_dir }}/default"
+    - "{{ nginx_sites_available_dir }}/default"
+  when: nginx_remove_default_site
+  notify: reload nginx
+  tags: ['nginx', 'configuration']
+
+- name: 📊 Create Nginx status configuration
+  debug:
+    msg: "Enabling Nginx status page at {{ nginx_status_path }}"
+  when: nginx_status_enabled
+  tags: ['nginx', 'monitoring']
+
+- name: Create Nginx status configuration
+  template:
+    src: status.conf.j2
+    dest: "{{ nginx_sites_available_dir }}/status"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  when: nginx_status_enabled
+  notify: reload nginx
+  tags: ['nginx', 'monitoring']
+
+- name: Enable Nginx status site
+  file:
+    src: "{{ nginx_sites_available_dir }}/status"
+    dest: "{{ nginx_sites_enabled_dir }}/status"
+    state: link
+  become: yes
+  when: nginx_status_enabled
+  notify: reload nginx
+  tags: ['nginx', 'monitoring']
+
+- name: Start and enable Nginx service
+  service:
+    name: "{{ nginx_service_name }}"
+    state: started
+    enabled: yes
+  become: yes
+  tags: ['nginx', 'services']
+
+- name: 🔍 Verify Nginx installation
+  debug:
+    msg: "Verifying Nginx installation and configuration"
+  tags: ['nginx', 'verification']
+
+- name: Test Nginx configuration
+  command: nginx -t
+  register: nginx_config_test
+  changed_when: false
+  become: yes
+  tags: ['nginx', 'verification']
+
+- name: Display Nginx configuration test results
+  debug:
+    msg: |
+      ✅ Nginx Configuration Test Results:
+      {{ nginx_config_test.stderr }}
+  when: nginx_config_test.rc == 0
+  tags: ['nginx', 'verification']
+
+- name: Fail if Nginx configuration is invalid
+  fail:
+    msg: |
+      ❌ Nginx configuration test failed:
+      {{ nginx_config_test.stderr }}
+  when: nginx_config_test.rc != 0
+  tags: ['nginx', 'verification']
+
+- name: Get Nginx version information
+  command: nginx -v
+  register: nginx_version
+  changed_when: false
+  tags: ['nginx', 'info']
+
+- name: Create site information directory structure
+  file:
+    path: "{{ nginx_site_info_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+  loop:
+    - configs
+    - logs
+    - status
+  tags: ['nginx', 'site-management']
+
+- name: 📋 Generate Nginx installation summary
+  template:
+    src: nginx_summary.j2
+    dest: "{{ nginx_site_info_dir }}/installation_summary.txt"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  vars:
+    installation_time: "{{ ansible_date_time.iso8601 }}"
+    nginx_version_info: "{{ nginx_version.stderr }}"
+  tags: ['nginx', 'documentation']
+
+- name: Display Nginx installation summary
+  debug:
+    msg: |
+      🌐 Nginx Installation Complete!
+      ================================
+      
+      ✅ Status: Successfully installed and configured
+      📦 Version: {{ nginx_version.stderr.split('/')[1] | default('Unknown') }}
+      🔧 Configuration: {{ nginx_conf_dir }}/nginx.conf
+      📁 Sites available: {{ nginx_sites_available_dir }}
+      📁 Sites enabled: {{ nginx_sites_enabled_dir }}
+      📊 Logs directory: {{ nginx_log_dir }}
+      
+      🔍 Monitoring:
+      {% if nginx_status_enabled %}
+      - Status page: http://localhost{{ nginx_status_path }}
+      {% endif %}
+      - Error log: {{ nginx_log_dir }}/error.log
+      - Access log: {{ nginx_log_dir }}/access.log
+      
+      📋 Site Management:
+      - Site info directory: {{ nginx_site_info_dir }}
+      - Installation summary: {{ nginx_site_info_dir }}/installation_summary.txt
+      
+      🚀 Ready to serve Laravel applications!
+  tags: ['nginx', 'summary']

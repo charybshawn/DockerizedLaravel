@@ -1,0 +1,18 @@
+---
+# PHP role handlers
+
+- name: restart php-fpm services
+  service:
+    name: "php{{ item }}-fpm"
+    state: restarted
+  loop: "{{ php_versions }}"
+  become: yes
+  listen: "restart php-fpm services"
+
+- name: reload php-fpm services
+  service:
+    name: "php{{ item }}-fpm"
+    state: reloaded
+  loop: "{{ php_versions }}"
+  become: yes
+  listen: "reload php-fpm services"

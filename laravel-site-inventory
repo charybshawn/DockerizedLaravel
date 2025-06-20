@@ -1,0 +1,462 @@
+#!/bin/bash
+# Laravel Site Inventory
+# Version: 2.0
+# Copyright: Laravel Development Environment Project
+#
+# Professional site inventory and status reporting tool
+
+set -euo pipefail
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source common functions
+source "${SCRIPT_DIR}/lib/common_functions.sh"
+
+# Configuration
+readonly VERSION="2.0"
+readonly SITES_INFO_DIR="/var/lib/nginx/sites"
+readonly NGINX_SITES_DIR="/etc/nginx/sites-available"
+readonly NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"
+readonly OUTPUT_FORMAT="${OUTPUT_FORMAT:-table}"
+
+# Output formats
+readonly FORMAT_TABLE="table"
+readonly FORMAT_JSON="json"
+readonly FORMAT_CSV="csv"
+readonly FORMAT_DETAILED="detailed"
+
+# Display header
+display_header() {
+    if [[ "$OUTPUT_FORMAT" == "$FORMAT_TABLE" ]] || [[ "$OUTPUT_FORMAT" == "$FORMAT_DETAILED" ]]; then
+        cat << EOF
+================================================================================
+Laravel Site Inventory Report
+Generated: $(date '+%Y-%m-%d %H:%M:%S')
+Version: ${VERSION}
+================================================================================
+
+EOF
+    fi
+}
+
+# Check service status
+check_service_status() {
+    local service=$1
+    if systemctl is-active --quiet "$service" 2>/dev/null; then
+        echo "Active"
+    else
+        echo "Inactive"
+    fi
+}
+
+# Get site information
+get_site_info() {
+    local site_name=$1
+    local info_file="$SITES_INFO_DIR/$site_name/status.env"
+    
+    # Initialize default values
+    local domain="unknown"
+    local port="80"
+    local status="unknown"
+    local php_version="unknown"
+    local created="unknown"
+    local git_repo="none"
+    local document_root="unknown"
+    
+    # Load site information if available
+    if [[ -f "$info_file" ]]; then
+        source "$info_file"
+        domain="${DOMAIN:-unknown}"
+        port="${PORT:-80}"
+        php_version="${PHP_VERSION:-unknown}"
+        created="${CREATED:-unknown}"
+        git_repo="${GIT_REPO:-none}"
+        document_root="${DOCUMENT_ROOT:-unknown}"
+    fi
+    
+    # Check if site is enabled
+    if [[ -L "$NGINX_ENABLED_DIR/$site_name" ]]; then
+        status="Enabled"
+    else
+        status="Disabled"
+    fi
+    
+    # Check if configuration is valid
+    local config_status="Invalid"
+    if [[ -f "$NGINX_SITES_DIR/$site_name" ]]; then
+        if nginx -t -c "$NGINX_SITES_DIR/$site_name" &>/dev/null; then
+            config_status="Valid"
+        fi
+    fi
+    
+    # Return as associative array string
+    echo "name=$site_name|domain=$domain|port=$port|status=$status|config=$config_status|php=$php_version|created=$created|git=$git_repo|root=$document_root"
+}
+
+# Display table format
+display_table_format() {
+    local sites=("$@")
+    
+    # Table header
+    printf "%-20s %-30s %-8s %-10s %-10s %-8s %-20s\n" \
+        "SITE NAME" "DOMAIN" "PORT" "STATUS" "CONFIG" "PHP" "CREATED"
+    printf "%s\n" "$(printf '=%.0s' {1..120})"
+    
+    # Table rows
+    for site_info in "${sites[@]}"; do
+        # Parse site info
+        local name domain port status config php created
+        IFS='|' read -r name domain port status config php created git root <<< \
+            "$(echo "$site_info" | sed 's/name=//;s/domain=//;s/port=//;s/status=//;s/config=//;s/php=//;s/created=//;s/git=//;s/root=//')"
+        
+        # Color coding for status
+        local status_display="$status"
+        if [[ "$status" == "Enabled" ]]; then
+            status_display="\033[32m$status\033[0m"  # Green
+        else
+            status_display="\033[33m$status\033[0m"  # Yellow
+        fi
+        
+        local config_display="$config"
+        if [[ "$config" == "Valid" ]]; then
+            config_display="\033[32m$config\033[0m"  # Green
+        else
+            config_display="\033[31m$config\033[0m"  # Red
+        fi
+        
+        printf "%-20s %-30s %-8s %-20b %-20b %-8s %-20s\n" \
+            "${name:0:20}" "${domain:0:30}" "$port" "$status_display" "$config_display" "$php" "${created:0:20}"
+    done
+}
+
+# Display JSON format
+display_json_format() {
+    local sites=("$@")
+    
+    echo "{"
+    echo "  \"generated\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\","
+    echo "  \"version\": \"$VERSION\","
+    echo "  \"sites\": ["
+    
+    local first=true
+    for site_info in "${sites[@]}"; do
+        # Parse site info
+        local vars=()
+        IFS='|' read -ra vars <<< "$site_info"
+        
+        local json_obj="{"
+        for var in "${vars[@]}"; do
+            IFS='=' read -r key value <<< "$var"
+            json_obj="${json_obj}\"$key\":\"$value\","
+        done
+        json_obj="${json_obj%,}}"
+        
+        if [[ "$first" == true ]]; then
+            echo "    $json_obj"
+            first=false
+        else
+            echo ",   $json_obj"
+        fi
+    done
+    
+    echo "  ]"
+    echo "}"
+}
+
+# Display CSV format
+display_csv_format() {
+    local sites=("$@")
+    
+    # CSV header
+    echo "site_name,domain,port,status,config_status,php_version,created,git_repository,document_root"
+    
+    # CSV rows
+    for site_info in "${sites[@]}"; do
+        # Parse site info
+        IFS='|' read -r name domain port status config php created git root <<< \
+            "$(echo "$site_info" | sed 's/name=//;s/domain=//;s/port=//;s/status=//;s/config=//;s/php=//;s/created=//;s/git=//;s/root=//')"
+        
+        echo "$name,$domain,$port,$status,$config,$php,$created,$git,$root"
+    done
+}
+
+# Display detailed format
+display_detailed_format() {
+    local sites=("$@")
+    
+    for site_info in "${sites[@]}"; do
+        # Parse site info
+        local vars=()
+        IFS='|' read -ra vars <<< "$site_info"
+        
+        declare -A site
+        for var in "${vars[@]}"; do
+            IFS='=' read -r key value <<< "$var"
+            site[$key]="$value"
+        done
+        
+        cat << EOF
+Site: ${site[name]}
+--------------------------------------------------------------------------------
+Domain:         ${site[domain]}
+Port:           ${site[port]}
+Status:         ${site[status]}
+Configuration:  ${site[config]}
+PHP Version:    ${site[php]}
+Created:        ${site[created]}
+Git Repository: ${site[git]}
+Document Root:  ${site[root]}
+
+URLs:
+  - Primary:    http://${site[domain]}$([ "${site[port]}" != "80" ] && echo ":${site[port]}")
+  - IP Access:  http://$(hostname -I | awk '{print $1}')$([ "${site[port]}" != "80" ] && echo ":${site[port]}")
+
+Configuration Files:
+  - Nginx:      $NGINX_SITES_DIR/${site[name]}
+  - Enabled:    $NGINX_ENABLED_DIR/${site[name]} $([ -L "$NGINX_ENABLED_DIR/${site[name]}" ] && echo "(active)" || echo "(inactive)")
+  - Site Info:  $SITES_INFO_DIR/${site[name]}/
+
+Logs:
+  - Access:     /var/log/nginx/${site[name]}_access.log
+  - Error:      /var/log/nginx/${site[name]}_error.log
+
+EOF
+    done
+}
+
+# Get all sites
+get_all_sites() {
+    local sites=()
+    
+    # Get sites from configuration directory
+    if [[ -d "$SITES_INFO_DIR" ]]; then
+        for site_dir in "$SITES_INFO_DIR"/*; do
+            if [[ -d "$site_dir" ]]; then
+                local site_name=$(basename "$site_dir")
+                local site_info=$(get_site_info "$site_name")
+                sites+=("$site_info")
+            fi
+        done
+    fi
+    
+    # Get sites from Nginx configuration (in case some don't have info files)
+    if [[ -d "$NGINX_SITES_DIR" ]]; then
+        for site_file in "$NGINX_SITES_DIR"/*; do
+            if [[ -f "$site_file" ]]; then
+                local site_name=$(basename "$site_file")
+                # Skip system files
+                if [[ "$site_name" == "default" ]] || [[ "$site_name" == "status" ]]; then
+                    continue
+                fi
+                # Check if we already have this site
+                local found=false
+                for existing in "${sites[@]}"; do
+                    if [[ "$existing" =~ "name=$site_name|" ]]; then
+                        found=true
+                        break
+                    fi
+                done
+                if [[ "$found" == false ]]; then
+                    local site_info=$(get_site_info "$site_name")
+                    sites+=("$site_info")
+                fi
+            fi
+        done
+    fi
+    
+    printf '%s\n' "${sites[@]}"
+}
+
+# Display system summary
+display_system_summary() {
+    if [[ "$OUTPUT_FORMAT" != "$FORMAT_TABLE" ]] && [[ "$OUTPUT_FORMAT" != "$FORMAT_DETAILED" ]]; then
+        return
+    fi
+    
+    cat << EOF
+
+System Status Summary
+--------------------------------------------------------------------------------
+Nginx:          $(check_service_status "nginx")
+MySQL:          $(check_service_status "mysql")
+PostgreSQL:     $(check_service_status "postgresql")
+
+PHP-FPM Versions:
+EOF
+    
+    # Check PHP-FPM services
+    for service in $(systemctl list-units --type=service --state=loaded | grep -o 'php[0-9.]*-fpm.service' | sort -u); do
+        local version=$(echo "$service" | grep -o '[0-9.]*')
+        printf "  - PHP %-4s    %s\n" "$version:" "$(check_service_status "$service")"
+    done
+    
+    echo ""
+    
+    # Site statistics
+    local total_sites=0
+    local enabled_sites=0
+    local sites=($(get_all_sites))
+    
+    for site_info in "${sites[@]}"; do
+        ((total_sites++))
+        if [[ "$site_info" =~ "status=Enabled" ]]; then
+            ((enabled_sites++))
+        fi
+    done
+    
+    cat << EOF
+Site Statistics:
+  - Total Sites:      $total_sites
+  - Enabled Sites:    $enabled_sites
+  - Disabled Sites:   $((total_sites - enabled_sites))
+
+EOF
+}
+
+# Display usage
+display_usage() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+OPTIONS:
+    -f, --format FORMAT    Output format (table|json|csv|detailed)
+    -s, --site SITE        Show information for specific site
+    -a, --all              Include system information (default)
+    --no-header            Omit header information
+    -h, --help             Display this help message
+
+OUTPUT FORMATS:
+    table      Formatted table view (default)
+    json       JSON output for programmatic use
+    csv        CSV format for spreadsheet import
+    detailed   Detailed view with all information
+
+EXAMPLES:
+    # Display all sites in table format
+    $(basename "$0")
+
+    # Get JSON output for automation
+    $(basename "$0") --format json
+
+    # Export to CSV
+    $(basename "$0") --format csv > sites.csv
+
+    # Show detailed information
+    $(basename "$0") --format detailed
+
+    # Show specific site
+    $(basename "$0") --site myapp
+
+EOF
+}
+
+# Parse arguments
+parse_arguments() {
+    local format="$FORMAT_TABLE"
+    local specific_site=""
+    local show_header=true
+    local show_system=true
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -f|--format)
+                format="$2"
+                shift 2
+                ;;
+            -s|--site)
+                specific_site="$2"
+                shift 2
+                ;;
+            -a|--all)
+                show_system=true
+                shift
+                ;;
+            --no-header)
+                show_header=false
+                shift
+                ;;
+            -h|--help)
+                display_usage
+                exit 0
+                ;;
+            *)
+                print_status "ERROR" "Unknown option: $1"
+                display_usage
+                exit $EXIT_GENERAL_ERROR
+                ;;
+        esac
+    done
+    
+    # Validate format
+    case "$format" in
+        "$FORMAT_TABLE"|"$FORMAT_JSON"|"$FORMAT_CSV"|"$FORMAT_DETAILED")
+            OUTPUT_FORMAT="$format"
+            ;;
+        *)
+            print_status "ERROR" "Invalid format: $format"
+            exit $EXIT_GENERAL_ERROR
+            ;;
+    esac
+    
+    export OUTPUT_FORMAT
+    export SPECIFIC_SITE="$specific_site"
+    export SHOW_HEADER="$show_header"
+    export SHOW_SYSTEM="$show_system"
+}
+
+# Main function
+main() {
+    # Parse arguments
+    parse_arguments "$@"
+    
+    # Initialize logging
+    log_info "Generating site inventory report"
+    
+    # Display header
+    if [[ "$SHOW_HEADER" == true ]]; then
+        display_header
+    fi
+    
+    # Get sites
+    local sites=()
+    if [[ -n "$SPECIFIC_SITE" ]]; then
+        # Get specific site
+        local site_info=$(get_site_info "$SPECIFIC_SITE")
+        if [[ "$site_info" =~ "name=$SPECIFIC_SITE|" ]]; then
+            sites=("$site_info")
+        else
+            print_status "ERROR" "Site not found: $SPECIFIC_SITE"
+            exit $EXIT_GENERAL_ERROR
+        fi
+    else
+        # Get all sites
+        mapfile -t sites < <(get_all_sites)
+    fi
+    
+    # Display sites based on format
+    case "$OUTPUT_FORMAT" in
+        "$FORMAT_TABLE")
+            display_table_format "${sites[@]}"
+            ;;
+        "$FORMAT_JSON")
+            display_json_format "${sites[@]}"
+            ;;
+        "$FORMAT_CSV")
+            display_csv_format "${sites[@]}"
+            ;;
+        "$FORMAT_DETAILED")
+            display_detailed_format "${sites[@]}"
+            ;;
+    esac
+    
+    # Display system summary
+    if [[ "$SHOW_SYSTEM" == true ]] && [[ -z "$SPECIFIC_SITE" ]]; then
+        display_system_summary
+    fi
+    
+    log_info "Site inventory report completed"
+}
+
+# Execute main
+main "$@"

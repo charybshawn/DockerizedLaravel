@@ -1,0 +1,38 @@
+---
+# This file should be encrypted with ansible-vault
+# Run: ansible-vault create group_vars/vault.yml
+# Then copy this content and modify the passwords
+
+# Database Credentials
+vault_mysql_root_password: "{{ vault_mysql_root_password | default('') }}"
+vault_postgres_password: "{{ vault_postgres_password | default('') }}"
+
+# Adminer Credentials
+vault_adminer_password: "{{ vault_adminer_password | default('') }}"
+vault_adminer_user: "dbadmin"
+
+# SSH Configuration
+vault_ssh_private_key: ""  # For Git repositories requiring SSH
+
+# API Keys (if needed for extensions)
+vault_github_token: ""
+vault_composer_auth: ""
+
+# Security Salts (Laravel)
+vault_app_key: ""
+vault_jwt_secret: ""
+
+# Additional Database Users
+vault_db_users:
+  - name: "laravel_user"
+    password: "{{ vault_laravel_db_password | default('') }}"
+    privileges: "SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,INDEX,DROP"
+    
+# Backup Configuration
+vault_backup_encryption_key: ""
+
+# INSTRUCTIONS:
+# 1. Create the actual vault file: ansible-vault create group_vars/vault.yml
+# 2. Copy the above content into the vault file
+# 3. Replace all empty strings with secure, randomly generated passwords
+# 4. Use the vault file in your playbooks with: ansible-playbook --ask-vault-pass playbook.yml

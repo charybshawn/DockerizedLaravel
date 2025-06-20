@@ -1,0 +1,45 @@
+---
+# MySQL role default variables
+
+# MySQL version and packages
+mysql_packages:
+  - mysql-server
+  - mysql-client
+  - python3-pymysql  # Required for Ansible MySQL modules
+
+# MySQL root configuration
+mysql_root_password: "{{ vault_mysql_root_password | default('') }}"
+mysql_root_user: root
+
+# MySQL configuration
+mysql_port: 3306
+mysql_bind_address: "127.0.0.1"
+mysql_datadir: /var/lib/mysql
+mysql_log_error: /var/log/mysql/error.log
+
+# MySQL tuning for development
+mysql_key_buffer_size: "256M"
+mysql_max_allowed_packet: "64M"
+mysql_thread_stack: "192K"
+mysql_thread_cache_size: 8
+mysql_max_connections: 100
+mysql_table_open_cache: 64
+mysql_sort_buffer_size: "512K"
+mysql_read_buffer_size: "256K"
+mysql_read_rnd_buffer_size: "512K"
+mysql_myisam_sort_buffer_size: "8M"
+
+# MySQL users (besides root)
+mysql_users: "{{ vault_db_users | default([]) }}"
+
+# MySQL databases to create
+mysql_databases: []
+
+# Security settings
+mysql_remove_anonymous_users: true
+mysql_remove_test_database: true
+mysql_disallow_root_login_remotely: true
+
+# Backup configuration
+mysql_backup_enabled: false
+mysql_backup_directory: "/var/backups/mysql"

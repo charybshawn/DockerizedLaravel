@@ -160,6 +160,18 @@
   become_user: "{{ site_user }}"
   when: compile_assets | default(false) | bool and npm_installed is defined and npm_installed | bool
 
+- name: 🌐 Creating Nginx configuration for {{ site_name }}
+  debug:
+    msg: |
+      📝 Nginx Configuration Details:
+      - Site name: {{ site_name }}
+      - Domain: {{ site_domain | default(site_name + '.local') }}
+      - Port: {{ site_port | default('80') }}
+      - Document root: /var/www/{{ site_name }}/public
+      - PHP version: {{ php_version | default('8.1') }}
+      - Config file: /etc/nginx/sites-available/{{ site_name }}
+  tags: ['laravel', 'nginx', 'info']
+
 - name: Create Nginx server block
   template:
     src: "{{ nginx_template | default('laravel_nginx.j2') }}"
@@ -167,24 +179,31 @@
     owner: root
     group: root
     mode: '0644'
+    backup: yes
   vars:
     server_name: "{{ site_domain | default(site_name + '.local') }}"
     root_directory: "/var/www/{{ site_name }}/public"
     port: "{{ site_port | default('80') }}"
     php_version: "{{ php_version | default('8.1') }}"
+  register: nginx_config_created
+  notify: nginx config test and reload
 
-- name: Enable Nginx server block
+- name: ✅ Enable Nginx server block for {{ site_name }}
   file:
     src: "/etc/nginx/sites-available/{{ site_name }}"
     dest: "/etc/nginx/sites-enabled/{{ site_name }}"
     state: link
+  register: nginx_site_enabled
+  notify: nginx config test and reload
 
-- name: Add domain to /etc/hosts
+- name: 🔗 Add domain to /etc/hosts
   lineinfile:
     path: /etc/hosts
     line: "127.0.0.1 {{ site_domain | default(site_name + '.local') }}"
     state: present
+    backup: yes
   when: update_hosts | default(true) | bool
+  register: hosts_updated
 
 - name: Run migrations if requested
   shell: cd /var/www/{{ site_name }} && php artisan migrate --force
@@ -250,4 +269,120 @@
         group: "www-data"
         mode: '0644'
       when: git_repo is defined and git_repo != ""
-  when: auto_update | default('no') | lower == 'yes' 
+  when: auto_update | default('no') | lower == 'yes'
+
+# Site information and summary generation
+- name: 📊 Create site information directory
+  file:
+    path: "/var/lib/nginx/sites/{{ site_name }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+  tags: ['laravel', 'documentation']
+
+- name: 📋 Generate site configuration summary
+  template:
+    src: site_summary.j2
+    dest: "/var/lib/nginx/sites/{{ site_name }}/summary.txt"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  vars:
+    creation_time: "{{ ansible_date_time.iso8601 }}"
+    site_config:
+      name: "{{ site_name }}"
+      domain: "{{ site_domain | default(site_name + '.local') }}"
+      port: "{{ site_port | default('80') }}"
+      document_root: "/var/www/{{ site_name }}/public"
+      php_version: "{{ php_version | default('8.1') }}"
+      nginx_config: "/etc/nginx/sites-available/{{ site_name }}"
+      git_repo: "{{ git_repo | default('Fresh Laravel installation') }}"
+      git_branch: "{{ git_branch | default('N/A') }}"
+      auto_update: "{{ auto_update | default('no') }}"
+      database:
+        connection: "{{ db_connection | default('mysql') }}"
+        name: "{{ db_database | default(site_name) }}"
+        host: "{{ db_host | default('127.0.0.1') }}"
+        port: "{{ db_port | default('3306') }}"
+  tags: ['laravel', 'documentation']
+
+- name: 📄 Create site status file
+  copy:
+    content: |
+      SITE_NAME={{ site_name }}
+      DOMAIN={{ site_domain | default(site_name + '.local') }}
+      PORT={{ site_port | default('80') }}
+      STATUS=active
+      CREATED={{ ansible_date_time.iso8601 }}
+      NGINX_CONFIG=/etc/nginx/sites-available/{{ site_name }}
+      DOCUMENT_ROOT=/var/www/{{ site_name }}/public
+      PHP_VERSION={{ php_version | default('8.1') }}
+      {% if git_repo is defined and git_repo != '' %}
+      GIT_REPO={{ git_repo }}
+      GIT_BRANCH={{ git_branch | default('main') }}
+      {% endif %}
+      LOG_FILE=/var/log/nginx/{{ site_name }}_access.log
+      ERROR_LOG=/var/log/nginx/{{ site_name }}_error.log
+    dest: "/var/lib/nginx/sites/{{ site_name }}/status.env"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  tags: ['laravel', 'documentation']
+
+- name: 🎉 Display Laravel site creation summary
+  debug:
+    msg: |
+      🎉 Laravel Site '{{ site_name }}' Created Successfully!
+      =====================================================
+      
+      🌐 Access Information:
+      - Primary URL: http://{{ site_domain | default(site_name + '.local') }}{% if site_port | default('80') != '80' %}:{{ site_port }}{% endif %}/
+      - IP Access: http://{{ ansible_default_ipv4.address }}{% if site_port | default('80') != '80' %}:{{ site_port }}{% endif %}/
+      - Document Root: /var/www/{{ site_name }}/public
+      
+      🔧 Configuration Files:
+      - Nginx Config: /etc/nginx/sites-available/{{ site_name }}
+      - Nginx Enabled: /etc/nginx/sites-enabled/{{ site_name }}
+      - Laravel .env: /var/www/{{ site_name }}/.env
+      - Site Summary: /var/lib/nginx/sites/{{ site_name }}/summary.txt
+      
+      📊 Technical Details:
+      - PHP Version: {{ php_version | default('8.1') }}
+      - PHP-FPM Socket: /run/php/php{{ php_version | default('8.1') }}-fpm.sock
+      {% if git_repo is defined and git_repo != '' %}
+      - Git Repository: {{ git_repo }}
+      - Branch: {{ git_branch | default('main') }}
+      {% else %}
+      - Installation: Fresh Laravel project
+      {% endif %}
+      
+      🗄️ Database Configuration:
+      - Connection: {{ db_connection | default('mysql') }}
+      - Database: {{ db_database | default(site_name) }}
+      - Host: {{ db_host | default('127.0.0.1') }}
+      - Port: {{ db_port | default('3306') }}
+      
+      📈 Logging:
+      - Access Log: /var/log/nginx/{{ site_name }}_access.log
+      - Error Log: /var/log/nginx/{{ site_name }}_error.log
+      {% if auto_update | default('no') | lower == 'yes' %}
+      - Update Log: /var/log/{{ site_name }}-updates.log
+      - Update Script: /usr/local/bin/update-{{ site_name }}.sh
+      {% endif %}
+      
+      🚀 Quick Commands:
+      - Test site: curl -H "Host: {{ site_domain | default(site_name + '.local') }}" http://localhost{% if site_port | default('80') != '80' %}:{{ site_port }}{% endif %}/
+      - View logs: tail -f /var/log/nginx/{{ site_name }}_*.log
+      - Laravel commands: cd /var/www/{{ site_name }} && php artisan <command>
+      - Update site: {% if auto_update | default('no') | lower == 'yes' %}/usr/local/bin/update-{{ site_name }}.sh{% else %}git pull && composer install{% endif %}
+      
+      📝 Next Steps:
+      1. Add '127.0.0.1 {{ site_domain | default(site_name + '.local') }}' to your hosts file (if not done automatically)
+      2. Visit http://{{ site_domain | default(site_name + '.local') }}{% if site_port | default('80') != '80' %}:{{ site_port }}{% endif %}/ to see your Laravel application
+      3. Configure your Laravel .env file for database connections
+      4. Run migrations: cd /var/www/{{ site_name }} && php artisan migrate
+  tags: ['laravel', 'summary'] 
