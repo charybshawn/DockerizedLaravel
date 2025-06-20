@@ -1,6 +1,22 @@
 ---
 # PHP configuration task for a specific version and SAPI
 
+- name: Check if php.ini exists
+  stat:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+  register: php_ini_exists
+
+- name: Copy php.ini template if it doesn't exist
+  copy:
+    src: "/usr/lib/php/{{ php_version }}/php.ini-production"
+    dest: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+    remote_src: yes
+    owner: root
+    group: root
+    mode: '0644'
+  when: not php_ini_exists.stat.exists
+  become: yes
+
 - name: Configure PHP settings
   lineinfile:
     path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
