@@ -70,6 +70,21 @@
   become: yes
   tags: ['php', 'configuration']
 
+- name: Test PHP-FPM configuration
+  command: "php-fpm{{ item }} -t"
+  loop: "{{ php_versions }}"
+  register: php_fpm_config_test
+  changed_when: false
+  failed_when: false
+  become: yes
+  tags: ['php', 'services']
+
+- name: Display PHP-FPM configuration test results
+  debug:
+    msg: "PHP-FPM {{ item.item }} config test: {{ 'PASSED' if item.rc == 0 else 'FAILED' }} - {{ item.stderr if item.rc != 0 else 'OK' }}"
+  loop: "{{ php_fpm_config_test.results }}"
+  tags: ['php', 'services']
+
 - name: Start and enable PHP-FPM services
   service:
     name: "php{{ item }}-fpm"
