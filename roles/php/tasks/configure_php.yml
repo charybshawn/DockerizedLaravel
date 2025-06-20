@@ -1,7 +1,7 @@
 ---
 # PHP configuration task for a specific version and SAPI
 
-- name: Configure PHP settings for {{ php_version }}/{{ php_sapi }}
+- name: Configure PHP settings
   lineinfile:
     path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
     regexp: "^{{ item.key }}\\s*="
@@ -12,7 +12,7 @@
   notify:
     - restart php-fpm services
 
-- name: Configure PHP development settings for {{ php_version }}/{{ php_sapi }}
+- name: Configure PHP development settings
   lineinfile:
     path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
     regexp: "^{{ item.key }}\\s*="

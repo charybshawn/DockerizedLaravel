@@ -53,11 +53,13 @@
 - name: Configure PHP settings for each version and SAPI
   include_tasks: configure_php.yml
   vars:
-    php_version: "{{ item[0] }}"
-    php_sapi: "{{ item[1] }}"
+    php_version: "{{ php_item[0] }}"
+    php_sapi: "{{ php_item[1] }}"
   with_nested:
     - "{{ php_versions }}"
     - ['fpm', 'cli']
+  loop_control:
+    loop_var: php_item
   tags: ['php', 'configuration']
 
 - name: Set default PHP version
