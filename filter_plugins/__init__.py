@@ -1,1 +1,0 @@
-# This file makes the filter_plugins directory a Python package
