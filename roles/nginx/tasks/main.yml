@@ -1,14 +1,9 @@
 ---
 # Nginx installation and configuration tasks
 
-- name: 🌐 Installing Nginx web server
+- name: Installing Nginx web server
   debug:
-    msg: |
-      📦 Installing Nginx with the following configuration:
-      - Worker processes: {{ nginx_worker_processes }}
-      - Worker connections: {{ nginx_worker_connections }}
-      - Client max body size: {{ nginx_client_max_body_size }}
-      - Server tokens hidden: {{ nginx_server_tokens }}
+    msg: "Installing Nginx with {{ nginx_worker_processes }} worker processes"
   tags: ['nginx', 'info']
 
 - name: Install Nginx packages
@@ -34,7 +29,7 @@
     - "{{ nginx_log_dir }}/sites"
   tags: ['nginx', 'directories']
 
-- name: 🔧 Configuring main nginx.conf
+- name: Configuring main nginx.conf
   debug:
     msg: "Applying optimized Nginx configuration with {{ nginx_worker_processes }} workers"
   tags: ['nginx', 'configuration']
@@ -85,7 +80,7 @@
   notify: reload nginx
   tags: ['nginx', 'configuration']
 
-- name: 📊 Create Nginx status configuration
+- name: Create Nginx status configuration
   debug:
     msg: "Enabling Nginx status page at {{ nginx_status_path }}"
   when: nginx_status_enabled
@@ -121,9 +116,9 @@
   become: yes
   tags: ['nginx', 'services']
 
-- name: 🔍 Verify Nginx installation
+- name: Verify Nginx installation
   debug:
-    msg: "Verifying Nginx installation and configuration"
+    msg: "Testing Nginx configuration"
   tags: ['nginx', 'verification']
 
 - name: Test Nginx configuration
@@ -135,9 +130,7 @@
 
 - name: Display Nginx configuration test results
   debug:
-    msg: |
-      ✅ Nginx Configuration Test Results:
-      {{ nginx_config_test.stderr }}
+    msg: "Nginx configuration test passed"
   when: nginx_config_test.rc == 0
   tags: ['nginx', 'verification']
 
@@ -169,7 +162,7 @@
     - status
   tags: ['nginx', 'site-management']
 
-- name: 📋 Generate Nginx installation summary
+- name: Generate Nginx installation summary
   template:
     src: nginx_summary.j2
     dest: "{{ nginx_site_info_dir }}/installation_summary.txt"
@@ -184,27 +177,5 @@
 
 - name: Display Nginx installation summary
   debug:
-    msg: |
-      🌐 Nginx Installation Complete!
-      ================================
-      
-      ✅ Status: Successfully installed and configured
-      📦 Version: {{ nginx_version.stderr.split('/')[1] | default('Unknown') }}
-      🔧 Configuration: {{ nginx_conf_dir }}/nginx.conf
-      📁 Sites available: {{ nginx_sites_available_dir }}
-      📁 Sites enabled: {{ nginx_sites_enabled_dir }}
-      📊 Logs directory: {{ nginx_log_dir }}
-      
-      🔍 Monitoring:
-      {% if nginx_status_enabled %}
-      - Status page: http://localhost{{ nginx_status_path }}
-      {% endif %}
-      - Error log: {{ nginx_log_dir }}/error.log
-      - Access log: {{ nginx_log_dir }}/access.log
-      
-      📋 Site Management:
-      - Site info directory: {{ nginx_site_info_dir }}
-      - Installation summary: {{ nginx_site_info_dir }}/installation_summary.txt
-      
-      🚀 Ready to serve Laravel applications!
+    msg: "Nginx {{ nginx_version.stderr.split('/')[1] | default('Unknown') }} installed and configured"
   tags: ['nginx', 'summary']
