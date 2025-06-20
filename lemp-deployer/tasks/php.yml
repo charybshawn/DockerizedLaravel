@@ -29,31 +29,6 @@
     state: present
   notify: restart php-fpm
 
-- name: Enable PHP extensions in php.ini
-  lineinfile:
-    path: "/etc/php/{{ php_version }}/fpm/php.ini"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-    backup: yes
-  loop:
-    - { regexp: '^;?extension=phar', line: 'extension=phar' }
-    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
-    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
-    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
-  notify: restart php-fpm
-
-- name: Enable PHP extensions in CLI php.ini
-  lineinfile:
-    path: "/etc/php/{{ php_version }}/cli/php.ini"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-    backup: yes
-  loop:
-    - { regexp: '^;?extension=phar', line: 'extension=phar' }
-    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
-    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
-    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
-
 - name: Ensure PHP-FPM configuration directory exists
   file:
     path: "/etc/php/{{ php_version }}/fpm"
@@ -89,6 +64,31 @@
     group: root
     mode: '0644'
     force: no
+
+- name: Enable PHP extensions in php.ini
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  loop:
+    - { regexp: '^;?extension=phar', line: 'extension=phar' }
+    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
+    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
+    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
+  notify: restart php-fpm
+
+- name: Enable PHP extensions in CLI php.ini
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/cli/php.ini"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  loop:
+    - { regexp: '^;?extension=phar', line: 'extension=phar' }
+    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
+    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
+    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
 
 - name: Create PHP-FPM main configuration
   copy:
