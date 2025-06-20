@@ -26,6 +26,9 @@
       - "php{{ php_version }}-pgsql"
       - "php{{ php_version }}-opcache"
       - "php{{ php_version }}-iconv"
+      - "php{{ php_version }}-dom"
+      - "php{{ php_version }}-fileinfo"
+      - "php{{ php_version }}-exif"
     state: present
   notify: restart php-fpm
 
