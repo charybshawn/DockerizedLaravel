@@ -214,8 +214,12 @@ validate_arguments() {
     fi
     
     # Set defaults
-    [[ -z "$DATABASE_NAME" ]] && DATABASE_NAME="$SITE_NAME"
-    [[ -z "$DATABASE_USER" ]] && DATABASE_USER="$SITE_NAME"
+    if [[ -z "$DATABASE_NAME" ]]; then
+        DATABASE_NAME="$SITE_NAME"
+    fi
+    if [[ -z "$DATABASE_USER" ]]; then
+        DATABASE_USER="$SITE_NAME"
+    fi
 }
 
 # Validate site name (alphanumeric and underscores only)
