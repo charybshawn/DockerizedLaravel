@@ -49,6 +49,7 @@
         - site_name is defined
         - site_name != ""
         - single_site_config[0].name != ""
+      tags: laravel
   
   tasks:
     - name: Check if user has defined sites
@@ -126,6 +127,7 @@
       service:
         name: nginx
         state: restarted
+      tags: laravel
         
     - name: Display sites information
       debug:
@@ -142,4 +144,5 @@
           {% endfor %}
           {% else %}
           No Laravel sites were configured. Add sites to the laravel_sites variable to configure them.
-          {% endif %} 
+          {% endif %}
+      tags: laravel 
