@@ -40,15 +40,15 @@
     group: root
     mode: '0755'
 
-- name: Copy default php.ini for FPM if it doesn't exist
-  copy:
-    src: "/usr/lib/php/{{ php_version }}/php.ini-production"
+- name: Deploy PHP FPM configuration from template
+  template:
+    src: php-fpm.ini.j2
     dest: "/etc/php/{{ php_version }}/fpm/php.ini"
-    remote_src: yes
     owner: root
     group: root
     mode: '0644'
-    force: no
+    backup: yes
+  notify: restart php-fpm
 
 - name: Ensure PHP CLI configuration directory exists
   file:
@@ -58,58 +58,14 @@
     group: root
     mode: '0755'
 
-- name: Copy default php.ini for CLI if it doesn't exist
-  copy:
-    src: "/usr/lib/php/{{ php_version }}/php.ini-production"
+- name: Deploy PHP CLI configuration from template
+  template:
+    src: php-cli.ini.j2
     dest: "/etc/php/{{ php_version }}/cli/php.ini"
-    remote_src: yes
     owner: root
     group: root
     mode: '0644'
-    force: no
-
-- name: Enable PHP extensions in php.ini
-  lineinfile:
-    path: "/etc/php/{{ php_version }}/fpm/php.ini"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
     backup: yes
-  loop:
-    - { regexp: '^;?extension=pdo', line: 'extension=pdo' }
-    - { regexp: '^;?extension=pdo_mysql', line: 'extension=pdo_mysql' }
-    - { regexp: '^;?extension=phar', line: 'extension=phar' }
-    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
-    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
-    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
-    - { regexp: '^;?extension=curl', line: 'extension=curl' }
-    - { regexp: '^;?extension=fileinfo', line: 'extension=fileinfo' }
-    - { regexp: '^;?extension=exif', line: 'extension=exif' }
-    - { regexp: '^;?extension=intl', line: 'extension=intl' }
-    - { regexp: '^;?extension=bcmath', line: 'extension=bcmath' }
-    - { regexp: '^;?extension=dom', line: 'extension=dom' }
-    - { regexp: '^;?extension=xmlreader', line: 'extension=xmlreader' }
-  notify: restart php-fpm
-
-- name: Enable PHP extensions in CLI php.ini
-  lineinfile:
-    path: "/etc/php/{{ php_version }}/cli/php.ini"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-    backup: yes
-  loop:
-    - { regexp: '^;?extension=pdo', line: 'extension=pdo' }
-    - { regexp: '^;?extension=pdo_mysql', line: 'extension=pdo_mysql' }
-    - { regexp: '^;?extension=phar', line: 'extension=phar' }
-    - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
-    - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
-    - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
-    - { regexp: '^;?extension=curl', line: 'extension=curl' }
-    - { regexp: '^;?extension=fileinfo', line: 'extension=fileinfo' }
-    - { regexp: '^;?extension=exif', line: 'extension=exif' }
-    - { regexp: '^;?extension=intl', line: 'extension=intl' }
-    - { regexp: '^;?extension=bcmath', line: 'extension=bcmath' }
-    - { regexp: '^;?extension=dom', line: 'extension=dom' }
-    - { regexp: '^;?extension=xmlreader', line: 'extension=xmlreader' }
 
 - name: Create PHP-FPM main configuration
   copy:
@@ -154,19 +110,6 @@
     group: root
     mode: '0644'
 
-- name: Configure PHP-FPM
-  lineinfile:
-    path: "/etc/php/{{ php_version }}/fpm/php.ini"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-    backup: yes
-  loop:
-    - { regexp: '^memory_limit =', line: 'memory_limit = 256M' }
-    - { regexp: '^max_execution_time =', line: 'max_execution_time = 300' }
-    - { regexp: '^upload_max_filesize =', line: 'upload_max_filesize = 64M' }
-    - { regexp: '^post_max_size =', line: 'post_max_size = 64M' }
-    - { regexp: '^max_input_vars =', line: 'max_input_vars = 3000' }
-  notify: restart php-fpm
 
 - name: Start and enable PHP-FPM
   service:

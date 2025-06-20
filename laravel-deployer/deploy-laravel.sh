@@ -665,17 +665,12 @@ main() {
     echo
     
     check_privileges
-    echo "DEBUG: Passed check_privileges"
     check_dependencies
-    echo "DEBUG: Passed check_dependencies"
     
     # Get user input (interactive or validate flags)
     get_user_input
-    echo "DEBUG: Passed get_user_input"
     validate_arguments
-    echo "DEBUG: Passed validate_arguments"
     validate_site_name
-    echo "DEBUG: Passed validate_site_name"
     
     # Display configuration
     print_status "INFO" "Deploying Laravel site: $SITE_NAME"
