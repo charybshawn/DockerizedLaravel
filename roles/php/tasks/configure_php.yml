@@ -1,0 +1,25 @@
+---
+# PHP configuration task for a specific version and SAPI
+
+- name: Configure PHP settings for {{ php_version }}/{{ php_sapi }}
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+    regexp: "^{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+    backup: yes
+  loop: "{{ php_settings | dict2items }}"
+  become: yes
+  notify:
+    - restart php-fpm services
+
+- name: Configure PHP development settings for {{ php_version }}/{{ php_sapi }}
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+    regexp: "^{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+    backup: yes
+  loop: "{{ php_development_settings | dict2items }}"
+  when: development_mode | default(true) | bool
+  become: yes
+  notify:
+    - restart php-fpm services

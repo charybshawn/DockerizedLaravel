@@ -50,20 +50,15 @@
   notify:
     - restart php-fpm services
 
-- name: Configure PHP settings for development
-  lineinfile:
-    path: "/etc/php/{{ item.0 }}/{{ item.1 }}/php.ini"
-    regexp: "^{{ item.2.key }}\\s*="
-    line: "{{ item.2.key }} = {{ item.2.value }}"
-    backup: yes
-  loop: >
-    {{ php_versions | product(['fpm', 'cli']) | 
-       product(php_settings.items() | list + php_development_settings.items() | list) | 
-       list }}
-  become: yes
+- name: Configure PHP settings for each version and SAPI
+  include_tasks: configure_php.yml
+  vars:
+    php_version: "{{ item[0] }}"
+    php_sapi: "{{ item[1] }}"
+  with_nested:
+    - "{{ php_versions }}"
+    - ['fpm', 'cli']
   tags: ['php', 'configuration']
-  notify:
-    - restart php-fpm services
 
 - name: Set default PHP version
   alternatives:

@@ -50,7 +50,7 @@ php_development_settings:
   display_startup_errors: "On"
   error_reporting: "E_ALL"
   log_errors: "On"
-  xdebug_mode: "develop,debug"
+  xdebug.mode: "develop,debug"
 
 # Production settings (not used in dev environment)
 php_production_settings:
@@ -58,4 +58,4 @@ php_production_settings:
   display_startup_errors: "Off"
   error_reporting: "E_ERROR | E_WARNING | E_PARSE"
   log_errors: "On"
-  xdebug_mode: "off"
+  xdebug.mode: "off"
