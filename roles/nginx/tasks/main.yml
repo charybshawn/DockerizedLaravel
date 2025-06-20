@@ -65,6 +65,26 @@
   notify: reload nginx
   tags: ['nginx', 'configuration']
 
+- name: Create default server configuration
+  template:
+    src: default-server.conf.j2
+    dest: "{{ nginx_sites_available_dir }}/00-default"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: reload nginx
+  tags: ['nginx', 'configuration']
+
+- name: Enable default server configuration
+  file:
+    src: "{{ nginx_sites_available_dir }}/00-default"
+    dest: "{{ nginx_sites_enabled_dir }}/00-default"
+    state: link
+  become: yes
+  notify: reload nginx
+  tags: ['nginx', 'configuration']
+
 - name: 📊 Create Nginx status configuration
   debug:
     msg: "Enabling Nginx status page at {{ nginx_status_path }}"

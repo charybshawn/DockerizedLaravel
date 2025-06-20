@@ -85,30 +85,6 @@ http {
     ssl_session_timeout {{ nginx_ssl_session_timeout }};
 
     ##
-    # Hide sensitive files
-    ##
-    location ~ /\. {
-        deny all;
-        access_log off;
-        log_not_found off;
-    }
-
-    location ~ ~$ {
-        deny all;
-        access_log off;
-        log_not_found off;
-    }
-
-    ##
-    # Performance optimizations for static files
-    ##
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt)$ {
-        expires 1M;
-        add_header Cache-Control "public, immutable";
-        access_log off;
-    }
-
-    ##
     # Include site configurations
     ##
     include {{ nginx_sites_enabled_dir }}/*;
