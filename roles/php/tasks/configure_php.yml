@@ -48,3 +48,17 @@
   become: yes
   notify:
     - restart php-fpm services
+
+- name: Enable core PHP extensions
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+    regexp: "^;?extension={{ item }}"
+    line: "extension={{ item }}"
+    backup: yes
+  loop:
+    - phar
+    - mbstring
+    - iconv
+  become: yes
+  notify:
+    - restart php-fpm services
