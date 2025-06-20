@@ -23,6 +23,7 @@ DATABASE_PASSWORD=""
 VERBOSE=false
 FORCE=false
 SSL_ENABLED=false
+INTERACTIVE=true
 
 # Print colored output
 print_status() {
@@ -43,25 +44,25 @@ Laravel Site Deployment Tool
 
 Usage: $0 [OPTIONS]
 
-Required Options:
+Interactive Mode (default):
+    $0                         Run with interactive prompts
+
+Non-Interactive Mode:
     --site-name NAME           Site name (used for directories and configs)
     --domain DOMAIN            Domain name for the site
     --github-repo URL          GitHub repository URL
-
-Optional:
     --branch BRANCH            Git branch to deploy (default: main)
     --database-name NAME       Database name (default: site_name)
     --database-user USER       Database user (default: site_name)
-    --database-password PASS   Database password (will prompt if not provided)
+    --database-password PASS   Database password
     --ssl                      Enable SSL/HTTPS configuration
     --force                    Overwrite existing site
     --verbose                  Show detailed output
     --help                     Show this help message
 
 Examples:
+    $0                         # Interactive mode
     $0 --site-name myapp --domain myapp.local --github-repo https://github.com/user/myapp.git
-    $0 --site-name blog --domain blog.com --github-repo git@github.com:user/blog.git --ssl
-    $0 --site-name api --domain api.example.com --github-repo https://github.com/user/api.git --branch develop
 
 Directory Structure:
     /var/www/SITE_NAME/         - Site root directory
@@ -77,14 +78,17 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --site-name)
             SITE_NAME="$2"
+            INTERACTIVE=false
             shift 2
             ;;
         --domain)
             DOMAIN="$2"
+            INTERACTIVE=false
             shift 2
             ;;
         --github-repo)
             GITHUB_REPO="$2"
+            INTERACTIVE=false
             shift 2
             ;;
         --branch)
@@ -127,22 +131,100 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required arguments
-if [[ -z "$SITE_NAME" || -z "$DOMAIN" || -z "$GITHUB_REPO" ]]; then
-    print_status "ERROR" "Missing required arguments"
-    show_help
-    exit 1
-fi
+# Interactive prompts
+get_user_input() {
+    if [[ "$INTERACTIVE" != true ]]; then
+        return
+    fi
+    
+    echo
+    print_status "INFO" "Laravel Site Deployment Configuration"
+    echo
+    
+    # Site name
+    while [[ -z "$SITE_NAME" ]]; do
+        read -p "Site name (alphanumeric and underscores only): " SITE_NAME
+        if [[ ! "$SITE_NAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
+            print_status "ERROR" "Site name must contain only letters, numbers, and underscores"
+            SITE_NAME=""
+        elif [[ -d "/var/www/$SITE_NAME" && "$FORCE" != true ]]; then
+            print_status "ERROR" "Site '$SITE_NAME' already exists"
+            read -p "Overwrite existing site? [y/N]: " overwrite
+            if [[ "$overwrite" =~ ^[Yy]$ ]]; then
+                FORCE=true
+            else
+                SITE_NAME=""
+            fi
+        fi
+    done
+    
+    # Domain
+    while [[ -z "$DOMAIN" ]]; do
+        read -p "Domain name (e.g., myapp.com): " DOMAIN
+        if [[ -z "$DOMAIN" ]]; then
+            print_status "WARN" "Domain cannot be empty"
+        fi
+    done
+    
+    # GitHub repository
+    while [[ -z "$GITHUB_REPO" ]]; do
+        read -p "GitHub repository URL: " GITHUB_REPO
+        if [[ -z "$GITHUB_REPO" ]]; then
+            print_status "WARN" "Repository URL cannot be empty"
+        fi
+    done
+    
+    # Git branch
+    read -p "Git branch (default: main): " input
+    if [[ -n "$input" ]]; then
+        GITHUB_BRANCH="$input"
+    fi
+    
+    # SSL configuration
+    read -p "Enable SSL/HTTPS? [y/N]: " ssl_choice
+    if [[ "$ssl_choice" =~ ^[Yy]$ ]]; then
+        SSL_ENABLED=true
+    fi
+    
+    # Database configuration
+    echo
+    print_status "INFO" "Database Configuration"
+    
+    read -p "Database name (default: $SITE_NAME): " input
+    DATABASE_NAME="${input:-$SITE_NAME}"
+    
+    read -p "Database user (default: $SITE_NAME): " input
+    DATABASE_USER="${input:-$SITE_NAME}"
+    
+    # Verbose output
+    read -p "Show verbose output? [y/N]: " verbose_choice
+    if [[ "$verbose_choice" =~ ^[Yy]$ ]]; then
+        VERBOSE=true
+    fi
+}
 
-# Set defaults
-[[ -z "$DATABASE_NAME" ]] && DATABASE_NAME="$SITE_NAME"
-[[ -z "$DATABASE_USER" ]] && DATABASE_USER="$SITE_NAME"
+# Validate required arguments (for non-interactive mode)
+validate_arguments() {
+    if [[ "$INTERACTIVE" != true ]]; then
+        if [[ -z "$SITE_NAME" || -z "$DOMAIN" || -z "$GITHUB_REPO" ]]; then
+            print_status "ERROR" "Missing required arguments for non-interactive mode"
+            show_help
+            exit 1
+        fi
+    fi
+    
+    # Set defaults
+    [[ -z "$DATABASE_NAME" ]] && DATABASE_NAME="$SITE_NAME"
+    [[ -z "$DATABASE_USER" ]] && DATABASE_USER="$SITE_NAME"
+}
 
 # Validate site name (alphanumeric and underscores only)
-if [[ ! "$SITE_NAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
-    print_status "ERROR" "Site name must contain only letters, numbers, and underscores"
-    exit 1
-fi
+validate_site_name() {
+    if [[ -n "$SITE_NAME" && ! "$SITE_NAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        print_status "ERROR" "Site name must contain only letters, numbers, and underscores"
+        exit 1
+    fi
+}
 
 # Check root privileges
 check_privileges() {
@@ -503,14 +585,21 @@ main() {
     echo "==============================================="
     echo
     
+    check_privileges
+    check_dependencies
+    
+    # Get user input (interactive or validate flags)
+    get_user_input
+    validate_arguments
+    validate_site_name
+    
+    # Display configuration
     print_status "INFO" "Deploying Laravel site: $SITE_NAME"
     print_status "INFO" "Domain: $DOMAIN"
     print_status "INFO" "Repository: $GITHUB_REPO"
     print_status "INFO" "Branch: $GITHUB_BRANCH"
     echo
     
-    check_privileges
-    check_dependencies
     check_existing_site
     get_database_password
     

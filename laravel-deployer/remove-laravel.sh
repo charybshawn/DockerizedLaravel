@@ -18,6 +18,7 @@ KEEP_DATABASE=false
 KEEP_FILES=false
 FORCE=false
 VERBOSE=false
+INTERACTIVE=true
 
 # Print colored output
 print_status() {
@@ -38,20 +39,20 @@ Laravel Site Removal Tool
 
 Usage: $0 [OPTIONS]
 
-Required Options:
-    --site-name NAME           Site name to remove
+Interactive Mode (default):
+    $0                        Run with interactive prompts
 
-Optional:
-    --keep-database           Keep database and user
-    --keep-files              Keep website files (backup only)
-    --force                   Skip confirmation prompts
-    --verbose                 Show detailed output
-    --help                    Show this help message
+Non-Interactive Mode:
+    --site-name NAME          Site name to remove
+    --keep-database          Keep database and user
+    --keep-files             Keep website files (backup only)
+    --force                  Skip confirmation prompts
+    --verbose                Show detailed output
+    --help                   Show this help message
 
 Examples:
-    $0 --site-name myapp
-    $0 --site-name blog --keep-database
-    $0 --site-name api --keep-files --force
+    $0                       # Interactive mode
+    $0 --site-name myapp --keep-database
 
 WARNING: This will remove the site and optionally its database!
 
@@ -63,6 +64,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --site-name)
             SITE_NAME="$2"
+            INTERACTIVE=false
             shift 2
             ;;
         --keep-database)
@@ -93,12 +95,68 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required arguments
-if [[ -z "$SITE_NAME" ]]; then
-    print_status "ERROR" "Missing required argument: --site-name"
-    show_help
-    exit 1
-fi
+# Interactive prompts
+get_user_input() {
+    if [[ "$INTERACTIVE" != true ]]; then
+        return
+    fi
+    
+    echo
+    print_status "INFO" "Laravel Site Removal Configuration"
+    echo
+    
+    # List available sites
+    if [[ -d "/var/www" ]]; then
+        echo "Available sites:"
+        for site in /var/www/*/; do
+            if [[ -d "$site" ]]; then
+                site_name=$(basename "$site")
+                if [[ "$site_name" != "*" && -f "/etc/nginx/sites-available/$site_name" ]]; then
+                    echo "  - $site_name"
+                fi
+            fi
+        done
+        echo
+    fi
+    
+    # Site name
+    while [[ -z "$SITE_NAME" ]]; do
+        read -p "Site name to remove: " SITE_NAME
+        if [[ -z "$SITE_NAME" ]]; then
+            print_status "WARN" "Site name cannot be empty"
+        elif [[ ! -d "/var/www/$SITE_NAME" && ! -f "/etc/nginx/sites-available/$SITE_NAME" ]]; then
+            print_status "ERROR" "Site '$SITE_NAME' does not exist"
+            SITE_NAME=""
+        fi
+    done
+    
+    # Database preservation
+    read -p "Keep database and user? [y/N]: " keep_db
+    if [[ "$keep_db" =~ ^[Yy]$ ]]; then
+        KEEP_DATABASE=true
+    fi
+    
+    # File preservation
+    read -p "Backup files instead of deleting? [y/N]: " keep_files
+    if [[ "$keep_files" =~ ^[Yy]$ ]]; then
+        KEEP_FILES=true
+    fi
+    
+    # Verbose output
+    read -p "Show verbose output? [y/N]: " verbose_choice
+    if [[ "$verbose_choice" =~ ^[Yy]$ ]]; then
+        VERBOSE=true
+    fi
+}
+
+# Validate required arguments (for non-interactive mode)
+validate_arguments() {
+    if [[ "$INTERACTIVE" != true && -z "$SITE_NAME" ]]; then
+        print_status "ERROR" "Missing required argument: --site-name"
+        show_help
+        exit 1
+    fi
+}
 
 # Check root privileges
 check_privileges() {
@@ -231,10 +289,15 @@ main() {
     echo "==============================================="
     echo
     
+    check_privileges
+    
+    # Get user input (interactive or validate flags)
+    get_user_input
+    validate_arguments
+    
     print_status "INFO" "Removing Laravel site: $SITE_NAME"
     echo
     
-    check_privileges
     check_site_exists
     confirm_removal
     

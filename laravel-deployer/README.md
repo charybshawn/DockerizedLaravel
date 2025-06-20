@@ -27,18 +27,32 @@ Automatically deploy Laravel applications from GitHub repositories with zero-dow
 git clone <your-repo-url>
 cd webserver/laravel-deployer
 
-# Deploy a Laravel site
-sudo ./deploy-laravel.sh \
-  --site-name myapp \
-  --domain myapp.local \
-  --github-repo https://github.com/user/myapp.git
+# Deploy a Laravel site (interactive mode)
+sudo ./deploy-laravel.sh
 
-# Remove a site
-sudo ./remove-laravel.sh --site-name myapp
+# Remove a site (interactive mode)
+sudo ./remove-laravel.sh
 ```
 
-## Deployment Options
+## Deployment Modes
 
+### Interactive Mode (Recommended)
+Simply run the script and follow the prompts:
+```bash
+sudo ./deploy-laravel.sh
+```
+
+The script will ask you for:
+- Site name (alphanumeric + underscores only)
+- Domain name for the site
+- GitHub repository URL
+- Git branch (default: main)
+- SSL/HTTPS configuration (y/N)
+- Database configuration
+- Verbose output preference
+
+### Non-Interactive Mode
+For automation or when you know all parameters:
 ```bash
 sudo ./deploy-laravel.sh [OPTIONS]
 
@@ -59,16 +73,31 @@ Optional:
 
 ## Examples
 
-### Basic Deployment
+### Interactive Deployment (Recommended)
 ```bash
+# Deploy a new Laravel site
+sudo ./deploy-laravel.sh
+
+# Follow the prompts:
+# Site name: blog
+# Domain name: blog.example.com
+# GitHub repository URL: https://github.com/user/blog.git
+# Git branch (default: main): [Enter]
+# Enable SSL/HTTPS? [y/N]: n
+# Database name (default: blog): [Enter]
+# Database user (default: blog): [Enter]
+# Show verbose output? [y/N]: n
+```
+
+### Non-Interactive Examples
+```bash
+# Basic deployment
 sudo ./deploy-laravel.sh \
   --site-name blog \
   --domain blog.example.com \
   --github-repo https://github.com/user/blog.git
-```
 
-### Production with SSL
-```bash
+# Production with SSL
 sudo ./deploy-laravel.sh \
   --site-name api \
   --domain api.example.com \
@@ -76,10 +105,8 @@ sudo ./deploy-laravel.sh \
   --branch production \
   --ssl \
   --database-name api_prod
-```
 
-### Development Environment
-```bash
+# Development environment
 sudo ./deploy-laravel.sh \
   --site-name testapp \
   --domain testapp.local \
@@ -136,6 +163,19 @@ Automatically handles:
 
 ## Site Removal
 
+### Interactive Removal (Recommended)
+```bash
+sudo ./remove-laravel.sh
+
+# The script will:
+# 1. List all available sites
+# 2. Ask which site to remove
+# 3. Ask about database preservation
+# 4. Ask about file backup
+# 5. Confirm before proceeding
+```
+
+### Non-Interactive Removal
 ```bash
 sudo ./remove-laravel.sh [OPTIONS]
 
@@ -150,7 +190,10 @@ Options:
 ### Removal Examples
 
 ```bash
-# Complete removal
+# Interactive removal (recommended)
+sudo ./remove-laravel.sh
+
+# Complete removal (non-interactive)
 sudo ./remove-laravel.sh --site-name myapp
 
 # Keep database for migration
