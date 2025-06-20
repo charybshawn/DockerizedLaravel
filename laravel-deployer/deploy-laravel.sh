@@ -494,18 +494,31 @@ install_dependencies() {
     
     cd "$release_dir"
     
+    # Test Composer is working
+    print_status "INFO" "Testing Composer availability..."
+    if ! sudo -u www-data composer --version >/dev/null 2>&1; then
+        print_status "ERROR" "Composer is not available or not working for www-data user"
+        exit 1
+    fi
+    print_status "SUCCESS" "Composer is available"
+    
     local max_attempts=3
     local attempt=1
     
     while [[ $attempt -le $max_attempts ]]; do
         print_status "INFO" "Composer install attempt $attempt of $max_attempts..."
+        print_status "INFO" "Running: sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction"
         
         # Capture composer output to check for extension errors
         local composer_output
         local composer_exit_code
         
+        set +e  # Temporarily disable exit on error
         composer_output=$(sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction 2>&1)
         composer_exit_code=$?
+        set -e  # Re-enable exit on error
+        
+        print_status "INFO" "Composer exit code: $composer_exit_code"
         
         if [[ $composer_exit_code -eq 0 ]]; then
             print_status "SUCCESS" "Dependencies installed successfully"
