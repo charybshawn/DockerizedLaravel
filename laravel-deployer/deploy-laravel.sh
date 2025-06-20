@@ -444,20 +444,153 @@ clone_repository() {
     echo "$release_dir" > "/tmp/current_release"
 }
 
-# Install dependencies
+# Install dependencies with automatic extension fixing
 install_dependencies() {
     local release_dir=$(cat /tmp/current_release)
     print_status "INFO" "Installing Composer dependencies..."
     
     cd "$release_dir"
     
-    # Install dependencies as www-data user
-    sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction || {
-        print_status "ERROR" "Failed to install Composer dependencies"
-        exit 1
-    }
+    local max_attempts=3
+    local attempt=1
     
-    print_status "SUCCESS" "Dependencies installed"
+    while [[ $attempt -le $max_attempts ]]; do
+        print_status "INFO" "Composer install attempt $attempt of $max_attempts..."
+        
+        # Capture composer output to check for extension errors
+        local composer_output
+        local composer_exit_code
+        
+        composer_output=$(sudo -u www-data composer install --no-dev --optimize-autoloader --no-interaction 2>&1)
+        composer_exit_code=$?
+        
+        if [[ $composer_exit_code -eq 0 ]]; then
+            print_status "SUCCESS" "Dependencies installed successfully"
+            return 0
+        fi
+        
+        # Check if the error is due to missing PHP extensions
+        if echo "$composer_output" | grep -q "requires ext-" || echo "$composer_output" | grep -q "Install or enable PHP's"; then
+            print_status "WARN" "Composer failed due to missing PHP extensions"
+            
+            # Extract missing extensions from error output
+            local missing_exts=()
+            while IFS= read -r line; do
+                if [[ $line =~ requires\ ext-([a-zA-Z0-9_]+) ]]; then
+                    missing_exts+=("${BASH_REMATCH[1]}")
+                elif [[ $line =~ Install\ or\ enable\ PHP\'s\ ([a-zA-Z0-9_]+)\ extension ]]; then
+                    missing_exts+=("${BASH_REMATCH[1]}")
+                fi
+            done <<< "$composer_output"
+            
+            if [[ ${#missing_exts[@]} -gt 0 ]]; then
+                # Remove duplicates
+                local unique_exts=($(printf "%s\n" "${missing_exts[@]}" | sort -u))
+                print_status "INFO" "Attempting to fix missing extensions: ${unique_exts[*]}"
+                
+                # Try to install and enable the missing extensions
+                fix_missing_extensions "${unique_exts[@]}"
+                
+                # Continue to next attempt
+                ((attempt++))
+                continue
+            fi
+        fi
+        
+        # If not an extension error or we couldn't fix it, show the error and exit
+        print_status "ERROR" "Composer installation failed:"
+        echo "$composer_output"
+        exit 1
+    done
+    
+    print_status "ERROR" "Failed to install Composer dependencies after $max_attempts attempts"
+    exit 1
+}
+
+# Fix missing PHP extensions
+fix_missing_extensions() {
+    local extensions=("$@")
+    local php_ini_cli="/etc/php/8.3/cli/php.ini"
+    local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
+    local fixed_any=false
+    
+    # Map common extension names to package names
+    declare -A ext_packages=(
+        ["dom"]="php8.3-xml"
+        ["xml"]="php8.3-xml"
+        ["simplexml"]="php8.3-xml"
+        ["xmlreader"]="php8.3-xml"
+        ["xmlwriter"]="php8.3-xml"
+        ["fileinfo"]="php8.3-fileinfo"
+        ["exif"]="php8.3-exif"
+        ["intl"]="php8.3-intl"
+        ["bcmath"]="php8.3-bcmath"
+        ["curl"]="php8.3-curl"
+        ["gd"]="php8.3-gd"
+        ["zip"]="php8.3-zip"
+        ["mysqli"]="php8.3-mysql"
+        ["pdo_mysql"]="php8.3-mysql"
+        ["openssl"]="php8.3-common"
+        ["mbstring"]="php8.3-mbstring"
+        ["tokenizer"]="php8.3-tokenizer"
+        ["ctype"]="php8.3-ctype"
+        ["json"]="php8.3-json"
+        ["filter"]="php8.3-common"
+        ["hash"]="php8.3-common"
+        ["pcre"]="php8.3-common"
+        ["session"]="php8.3-common"
+        ["spl"]="php8.3-common"
+    )
+    
+    for ext in "${extensions[@]}"; do
+        print_status "INFO" "Fixing extension: $ext"
+        
+        # First try to enable in php.ini files
+        local enabled_in_cli=false
+        local enabled_in_fmp=false
+        
+        if [[ -f "$php_ini_cli" ]]; then
+            if sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null; then
+                enabled_in_cli=true
+            fi
+        fi
+        
+        if [[ -f "$php_ini_fpm" ]]; then
+            if sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null; then
+                enabled_in_fmp=true
+            fi
+        fi
+        
+        # If we enabled it in ini files, mark as potentially fixed
+        if [[ $enabled_in_cli == true || $enabled_in_fmp == true ]]; then
+            fixed_any=true
+            print_status "SUCCESS" "Enabled $ext extension in php.ini"
+        fi
+        
+        # If extension has a package mapping, try to install it
+        if [[ -n "${ext_packages[$ext]:-}" ]]; then
+            print_status "INFO" "Installing package: ${ext_packages[$ext]}"
+            if apt-get update -qq >/dev/null 2>&1 && apt-get install -y "${ext_packages[$ext]}" >/dev/null 2>&1; then
+                fixed_any=true
+                print_status "SUCCESS" "Installed package: ${ext_packages[$ext]}"
+            else
+                print_status "WARN" "Failed to install package: ${ext_packages[$ext]}"
+            fi
+        fi
+    done
+    
+    if [[ $fixed_any == true ]]; then
+        # Restart PHP-FPM to load changes
+        print_status "INFO" "Restarting PHP-FPM to load extension changes..."
+        systemctl restart php8.3-fpm 2>/dev/null || true
+        
+        # Give it a moment to restart
+        sleep 2
+        
+        print_status "SUCCESS" "Extension fixes applied"
+    else
+        print_status "WARN" "No extension fixes could be applied"
+    fi
 }
 
 # Configure Laravel environment
