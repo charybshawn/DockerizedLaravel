@@ -72,6 +72,24 @@
     mode: '0644'
     force: no
 
+- name: Ensure PHP CLI configuration directory exists
+  file:
+    path: "/etc/php/{{ php_version }}/cli"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy default php.ini for CLI if it doesn't exist
+  copy:
+    src: "/usr/lib/php/{{ php_version }}/php.ini-production"
+    dest: "/etc/php/{{ php_version }}/cli/php.ini"
+    remote_src: yes
+    owner: root
+    group: root
+    mode: '0644'
+    force: no
+
 - name: Create PHP-FPM main configuration
   copy:
     content: |
