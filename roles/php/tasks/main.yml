@@ -28,7 +28,7 @@
   notify:
     - restart php-fpm services
 
-- name: Create PHP-FPM pool configuration directories
+- name: Create PHP-FPM configuration directories
   file:
     path: "/etc/php/{{ item }}/fpm/pool.d"
     state: directory
@@ -36,6 +36,21 @@
   loop: "{{ php_versions }}"
   become: yes
   tags: ['php', 'configuration']
+
+- name: Configure main PHP-FPM configuration
+  template:
+    src: php-fpm.conf.j2
+    dest: "/etc/php/{{ item }}/fpm/php-fpm.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ php_versions }}"
+  vars:
+    php_version: "{{ item }}"
+  become: yes
+  tags: ['php', 'configuration']
+  notify:
+    - restart php-fpm services
 
 - name: Configure PHP-FPM pools
   template:

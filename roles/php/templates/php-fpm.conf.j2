@@ -1,0 +1,39 @@
+; PHP-FPM Configuration
+; {{ ansible_managed }}
+
+[global]
+; Pid file
+pid = /run/php/php{{ php_version }}-fpm.pid
+
+; Error log file
+error_log = /var/log/php{{ php_version }}-fpm.log
+
+; Syslog settings
+syslog.facility = daemon
+syslog.ident = php-fpm
+
+; Log level
+log_level = notice
+
+; Emergency restart threshold
+emergency_restart_threshold = 10
+
+; Emergency restart interval
+emergency_restart_interval = 1m
+
+; Time limit for child processes
+process_control_timeout = 10s
+
+; Maximum FPM processes
+;process.max = 128
+
+; Send FPM to background
+daemonize = yes
+
+; Set permissions for unix socket
+; listen.owner = www-data
+; listen.group = www-data
+; listen.mode = 0660
+
+; Include pool definitions
+include=/etc/php/{{ php_version }}/fpm/pool.d/*.conf
