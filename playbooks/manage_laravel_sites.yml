@@ -131,18 +131,6 @@
         
     - name: Display sites information
       debug:
-        msg: |
-          {% if laravel_sites is defined and laravel_sites | length > 0 %}
-          Laravel sites configured:
-          {% for site in laravel_sites %}
-          - {{ site.name }} ({{ site.domain | default(site.name + '.local') }}) on port {{ site.port | default('80') }}
-          {% endfor %}
-          
-          You can access these sites at:
-          {% for site in laravel_sites %}
-          http://{{ site.domain | default(site.name + '.local') }}{% if site.port | default('80') != '80' %}:{{ site.port }}{% endif %}
-          {% endfor %}
-          {% else %}
-          No Laravel sites were configured. Add sites to the laravel_sites variable to configure them.
-          {% endif %}
+        msg: "{{ laravel_sites | length }} site(s) configured"
+      when: laravel_sites is defined and laravel_sites | length > 0
       tags: laravel 
