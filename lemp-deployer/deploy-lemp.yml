@@ -50,3 +50,11 @@
     - name: Include database installation
       include_tasks: tasks/database.yml
       tags: ['database']
+    
+    - name: Include Node.js installation
+      include_tasks: tasks/nodejs.yml
+      tags: ['nodejs']
+    
+    - name: Display final status
+      include_tasks: tasks/final-status.yml
+      tags: ['status']

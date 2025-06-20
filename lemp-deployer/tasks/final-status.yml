@@ -1,0 +1,59 @@
+---
+- name: Display installation success message
+  debug:
+    msg: |
+      
+      [✓] LEMP stack installed successfully!
+      
+      Installed Components:
+
+- name: Get PHP version
+  command: "php{{ php_version }} --version"
+  register: final_php_version
+  changed_when: false
+
+- name: Get Nginx version  
+  command: nginx -v
+  register: final_nginx_version
+  changed_when: false
+
+- name: Get database version
+  command: mysql --version
+  register: final_mysql_version
+  changed_when: false
+  when: database_type == "mariadb"
+
+- name: Get PostgreSQL version
+  command: psql --version
+  register: final_postgres_version
+  changed_when: false
+  when: database_type == "postgres"
+
+- name: Get Composer version
+  command: composer --version
+  register: final_composer_version
+  changed_when: false
+
+- name: Get Node.js version
+  command: node --version
+  register: final_node_version
+  changed_when: false
+
+- name: Get npm version
+  command: npm --version
+  register: final_npm_version
+  changed_when: false
+
+- name: Display final component versions
+  debug:
+    msg: |
+      {{ final_php_version.stdout_lines[0] }}
+      {{ final_nginx_version.stderr_lines[0] }}
+      {% if database_type == "mariadb" %}
+      {{ final_mysql_version.stdout_lines[0] }}
+      {% else %}
+      {{ final_postgres_version.stdout_lines[0] }}
+      {% endif %}
+      {{ final_composer_version.stdout_lines[0] }}
+      Node.js {{ final_node_version.stdout }}
+      npm {{ final_npm_version.stdout }}

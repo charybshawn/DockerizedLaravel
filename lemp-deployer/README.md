@@ -9,6 +9,7 @@ A clean, production-ready LEMP stack installer for Ubuntu that avoids the comple
 - **Database Options**: Choose between MariaDB or PostgreSQL
 - **Laravel Optimized**: Nginx configured for Laravel projects
 - **Global Composer**: Composer installed system-wide
+- **Node.js & npm**: Latest LTS Node.js with npm and global packages (yarn, pm2)
 - **Clean Output**: Minimal output by default, verbose/debug modes available
 - **Complete Rollback**: Full uninstall capability with data protection options
 
@@ -79,7 +80,9 @@ lemp-deployer/
     ├── php.yml            # PHP installation
     ├── composer.yml       # Composer installation
     ├── nginx.yml          # Nginx configuration
-    └── database.yml       # Database setup
+    ├── database.yml       # Database setup
+    ├── nodejs.yml         # Node.js and npm installation
+    └── final-status.yml   # Installation summary
 ```
 
 ## Requirements
@@ -92,7 +95,8 @@ lemp-deployer/
 
 1. **Test the setup**: Visit your server IP to see the default Nginx page
 2. **Create Laravel projects**: Use `composer create-project laravel/laravel myproject`
-3. **Configure virtual hosts**: Add Nginx server blocks for your domains
+3. **Build frontend assets**: Use `npm install && npm run build` for Laravel projects
+4. **Configure virtual hosts**: Add Nginx server blocks for your domains
 
 ## Security Notes
 

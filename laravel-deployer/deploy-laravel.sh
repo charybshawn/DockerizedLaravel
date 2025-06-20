@@ -421,6 +421,13 @@ install_dependencies() {
         
         if [[ $composer_exit_code -eq 0 ]]; then
             print_status "SUCCESS" "Dependencies installed successfully"
+            
+            # Build frontend assets if package.json exists
+            if [[ -f "package.json" ]]; then
+                print_status "INFO" "package.json found, building frontend assets..."
+                build_frontend_assets
+            fi
+            
             return 0
         fi
         
@@ -446,6 +453,40 @@ install_dependencies() {
     
     print_status "ERROR" "Failed to install Composer dependencies after $max_attempts attempts"
     exit 1
+}
+
+# Build frontend assets using npm
+build_frontend_assets() {
+    local release_dir=$(cat /tmp/current_release)
+    print_status "INFO" "Building frontend assets..."
+    
+    cd "$release_dir"
+    
+    # Check if Node.js and npm are available
+    if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+        print_status "WARN" "Node.js or npm not found - skipping frontend asset building"
+        print_status "INFO" "Install Node.js with: apt-get install nodejs npm"
+        return 0
+    fi
+    
+    # Install npm dependencies
+    print_status "INFO" "Installing npm dependencies..."
+    if ! sudo -u www-data npm install --production 2>/dev/null; then
+        print_status "WARN" "npm install failed - skipping asset building"
+        return 0
+    fi
+    
+    # Build assets if build script exists
+    if sudo -u www-data npm run --silent 2>/dev/null | grep -q "build"; then
+        print_status "INFO" "Running npm run build..."
+        if sudo -u www-data npm run build 2>/dev/null; then
+            print_status "SUCCESS" "Frontend assets built successfully"
+        else
+            print_status "WARN" "npm run build failed - continuing deployment"
+        fi
+    else
+        print_status "INFO" "No build script found in package.json - skipping build step"
+    fi
 }
 
 

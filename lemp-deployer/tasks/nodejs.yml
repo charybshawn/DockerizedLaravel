@@ -1,0 +1,56 @@
+---
+- name: Add NodeSource GPG key
+  apt_key:
+    url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+    state: present
+
+- name: Add NodeSource repository
+  apt_repository:
+    repo: "deb https://deb.nodesource.com/node_lts.x {{ ansible_distribution_release }} main"
+    state: present
+    update_cache: yes
+
+- name: Install Node.js and npm
+  apt:
+    name:
+      - nodejs
+    state: present
+    update_cache: yes
+
+- name: Verify Node.js installation
+  command: node --version
+  register: node_version_output
+  changed_when: false
+
+- name: Verify npm installation
+  command: npm --version
+  register: npm_version_output
+  changed_when: false
+
+- name: Display Node.js version
+  debug:
+    msg: "Node.js {{ node_version_output.stdout }} installed"
+  when: verbose_mode | default(false)
+
+- name: Display npm version
+  debug:
+    msg: "npm {{ npm_version_output.stdout }} installed"
+  when: verbose_mode | default(false)
+
+- name: Install common global npm packages
+  npm:
+    name: "{{ item }}"
+    global: yes
+    state: present
+  loop:
+    - yarn
+    - pm2
+  ignore_errors: yes
+
+- name: Set npm global directory permissions
+  file:
+    path: /usr/lib/node_modules
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
