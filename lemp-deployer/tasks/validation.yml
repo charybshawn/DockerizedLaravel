@@ -1,0 +1,37 @@
+---
+- name: Check system requirements
+  debug:
+    msg: "Checking system requirements"
+  when: verbose_mode | default(false)
+
+- name: Update package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install essential packages
+  apt:
+    name:
+      - curl
+      - wget
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - apt-transport-https
+      - software-properties-common
+    state: present
+
+- name: Check if running on Ubuntu
+  fail:
+    msg: "This playbook only supports Ubuntu"
+  when: ansible_distribution != "Ubuntu"
+
+- name: Verify PHP version is supported
+  fail:
+    msg: "Unsupported PHP version: {{ php_version }}"
+  when: php_version not in ["7.4", "8.0", "8.1", "8.2", "8.3", "8.4"]
+
+- name: Verify database type is supported
+  fail:
+    msg: "Unsupported database type: {{ database_type }}"
+  when: database_type not in ["mariadb", "postgres"]

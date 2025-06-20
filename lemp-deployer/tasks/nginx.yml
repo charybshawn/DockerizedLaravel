@@ -1,0 +1,103 @@
+---
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Create /var/www directory
+  file:
+    path: /var/www
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Remove default Nginx site
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/default
+    - /etc/nginx/sites-available/default
+  notify: restart nginx
+
+- name: Configure Nginx main config
+  copy:
+    content: |
+      user www-data;
+      worker_processes auto;
+      pid /run/nginx.pid;
+      include /etc/nginx/modules-enabled/*.conf;
+
+      events {
+          worker_connections 768;
+          multi_accept on;
+          use epoll;
+      }
+
+      http {
+          sendfile on;
+          tcp_nopush on;
+          tcp_nodelay on;
+          keepalive_timeout 65;
+          types_hash_max_size 2048;
+          client_max_body_size 64M;
+
+          include /etc/nginx/mime.types;
+          default_type application/octet-stream;
+
+          gzip on;
+          gzip_vary on;
+          gzip_proxied any;
+          gzip_comp_level 6;
+          gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+
+          access_log /var/log/nginx/access.log;
+          error_log /var/log/nginx/error.log;
+
+          include /etc/nginx/conf.d/*.conf;
+          include /etc/nginx/sites-enabled/*;
+      }
+    dest: /etc/nginx/nginx.conf
+    backup: yes
+  notify: restart nginx
+
+- name: Create default server block
+  copy:
+    content: |
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          server_name _;
+          return 444;
+      }
+    dest: /etc/nginx/sites-available/default-server
+  notify: restart nginx
+
+- name: Enable default server block
+  file:
+    src: /etc/nginx/sites-available/default-server
+    dest: /etc/nginx/sites-enabled/default-server
+    state: link
+  notify: restart nginx
+
+- name: Test Nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Start and enable Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Get Nginx version
+  command: nginx -v
+  register: nginx_version
+  changed_when: false
+
+- name: Display Nginx version
+  debug:
+    msg: "{{ nginx_version.stderr }}"
+  when: verbose_mode | default(false)

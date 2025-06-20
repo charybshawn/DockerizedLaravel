@@ -1,0 +1,36 @@
+---
+- name: Check if Composer is already installed
+  stat:
+    path: /usr/local/bin/composer
+  register: composer_bin
+
+- name: Download Composer installer
+  get_url:
+    url: https://getcomposer.org/installer
+    dest: /tmp/composer-setup.php
+    mode: '0755'
+  when: not composer_bin.stat.exists
+
+- name: Install Composer globally
+  command: "php{{ php_version }} /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer"
+  when: not composer_bin.stat.exists
+
+- name: Remove Composer installer
+  file:
+    path: /tmp/composer-setup.php
+    state: absent
+
+- name: Make Composer executable
+  file:
+    path: /usr/local/bin/composer
+    mode: '0755'
+
+- name: Verify Composer installation
+  command: composer --version
+  register: composer_version
+  changed_when: false
+
+- name: Display Composer version
+  debug:
+    msg: "{{ composer_version.stdout }}"
+  when: verbose_mode | default(false)

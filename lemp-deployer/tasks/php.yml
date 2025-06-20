@@ -1,0 +1,59 @@
+---
+- name: Add Ondrej PHP PPA
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+
+- name: Update package cache after adding PPA
+  apt:
+    update_cache: yes
+
+- name: Install PHP and extensions
+  apt:
+    name:
+      - "php{{ php_version }}"
+      - "php{{ php_version }}-fpm"
+      - "php{{ php_version }}-cli"
+      - "php{{ php_version }}-common"
+      - "php{{ php_version }}-mbstring"
+      - "php{{ php_version }}-xml"
+      - "php{{ php_version }}-curl"
+      - "php{{ php_version }}-zip"
+      - "php{{ php_version }}-gd"
+      - "php{{ php_version }}-intl"
+      - "php{{ php_version }}-bcmath"
+      - "php{{ php_version }}-mysql"
+      - "php{{ php_version }}-pgsql"
+      - "php{{ php_version }}-opcache"
+    state: present
+  notify: restart php-fpm
+
+- name: Configure PHP-FPM
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  loop:
+    - { regexp: '^memory_limit =', line: 'memory_limit = 256M' }
+    - { regexp: '^max_execution_time =', line: 'max_execution_time = 300' }
+    - { regexp: '^upload_max_filesize =', line: 'upload_max_filesize = 64M' }
+    - { regexp: '^post_max_size =', line: 'post_max_size = 64M' }
+    - { regexp: '^max_input_vars =', line: 'max_input_vars = 3000' }
+  notify: restart php-fpm
+
+- name: Start and enable PHP-FPM
+  service:
+    name: "php{{ php_version }}-fpm"
+    state: started
+    enabled: yes
+
+- name: Verify PHP installation
+  command: "php{{ php_version }} --version"
+  register: php_version_output
+  changed_when: false
+
+- name: Display PHP version
+  debug:
+    msg: "{{ php_version_output.stdout_lines[0] }}"
+  when: verbose_mode | default(false)

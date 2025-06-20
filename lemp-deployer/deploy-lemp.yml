@@ -1,0 +1,52 @@
+---
+- name: Deploy LEMP Stack
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+  
+  vars_files:
+    - vars/config.yml
+  
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+    
+    - name: restart php-fpm
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+    
+    - name: restart mariadb
+      service:
+        name: mariadb
+        state: restarted
+      when: database_type == "mariadb"
+    
+    - name: restart postgresql
+      service:
+        name: postgresql
+        state: restarted
+      when: database_type == "postgres"
+  
+  tasks:
+    - name: Include validation tasks
+      include_tasks: tasks/validation.yml
+      tags: ['validation']
+    
+    - name: Include PHP installation
+      include_tasks: tasks/php.yml
+      tags: ['php']
+    
+    - name: Include Composer installation
+      include_tasks: tasks/composer.yml
+      tags: ['composer']
+    
+    - name: Include Nginx installation
+      include_tasks: tasks/nginx.yml
+      tags: ['nginx']
+    
+    - name: Include database installation
+      include_tasks: tasks/database.yml
+      tags: ['database']

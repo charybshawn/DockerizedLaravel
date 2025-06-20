@@ -1,0 +1,84 @@
+---
+- name: Install MariaDB
+  block:
+    - name: Install MariaDB packages
+      apt:
+        name:
+          - mariadb-server
+          - mariadb-client
+          - python3-pymysql
+        state: present
+
+    - name: Start and enable MariaDB
+      service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: Set MariaDB root password
+      mysql_user:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        name: root
+        password: "{{ database_password }}"
+        state: present
+
+    - name: Remove anonymous users
+      mysql_user:
+        login_user: root
+        login_password: "{{ database_password }}"
+        name: ''
+        host_all: yes
+        state: absent
+
+    - name: Remove test database
+      mysql_db:
+        login_user: root
+        login_password: "{{ database_password }}"
+        name: test
+        state: absent
+
+    - name: Get MariaDB version
+      command: mysql --version
+      register: mariadb_version
+      changed_when: false
+
+    - name: Display MariaDB version
+      debug:
+        msg: "{{ mariadb_version.stdout }}"
+      when: verbose_mode | default(false)
+
+  when: database_type == "mariadb"
+
+- name: Install PostgreSQL
+  block:
+    - name: Install PostgreSQL packages
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
+        state: present
+
+    - name: Start and enable PostgreSQL
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Set PostgreSQL password
+      postgresql_user:
+        name: postgres
+        password: "{{ database_password }}"
+      become_user: postgres
+
+    - name: Get PostgreSQL version
+      command: psql --version
+      register: postgres_version
+      changed_when: false
+
+    - name: Display PostgreSQL version
+      debug:
+        msg: "{{ postgres_version.stdout }}"
+      when: verbose_mode | default(false)
+
+  when: database_type == "postgres"
