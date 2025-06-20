@@ -469,6 +469,12 @@ install_dependencies() {
             return 0
         fi
         
+        # Show composer output for debugging
+        if [[ "$VERBOSE" == true ]]; then
+            print_status "INFO" "Composer output:"
+            echo "$composer_output"
+        fi
+        
         # Check if the error is due to missing PHP extensions
         if echo "$composer_output" | grep -q "requires ext-" || echo "$composer_output" | grep -q "Install or enable PHP's"; then
             print_status "WARN" "Composer failed due to missing PHP extensions"
@@ -498,9 +504,16 @@ install_dependencies() {
         fi
         
         # If not an extension error or we couldn't fix it, show the error and exit
-        print_status "ERROR" "Composer installation failed:"
+        print_status "ERROR" "Composer installation failed (attempt $attempt):"
         echo "$composer_output"
-        exit 1
+        
+        # If this was the last attempt, exit
+        if [[ $attempt -eq $max_attempts ]]; then
+            exit 1
+        fi
+        
+        # Otherwise try again
+        ((attempt++))
     done
     
     print_status "ERROR" "Failed to install Composer dependencies after $max_attempts attempts"
