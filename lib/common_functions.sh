@@ -431,6 +431,19 @@ cleanup_on_exit() {
     return $exit_code
 }
 
+# Check if running as root
+check_root_privileges() {
+    log_info "Checking root privileges"
+    
+    if [[ $EUID -ne 0 ]]; then
+        print_status "ERROR" "This operation must be run with root privileges"
+        print_status "INFO" "Please run with sudo"
+        exit $EXIT_PERMISSION_ERROR
+    fi
+    
+    log_info "Root privileges confirmed"
+}
+
 # Set up exit trap
 trap cleanup_on_exit EXIT
 
