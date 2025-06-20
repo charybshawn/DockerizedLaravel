@@ -266,7 +266,7 @@ check_php_extensions() {
     print_status "INFO" "Checking required PHP extensions..."
     
     # Required extensions for Laravel
-    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom")
+    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom" "xmlreader")
     local missing_packages=()
     local php_ini_cli="/etc/php/8.3/cli/php.ini"
     local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
@@ -656,7 +656,31 @@ fix_missing_extensions() {
         # Give it a moment to restart
         sleep 2
         
-        print_status "SUCCESS" "Extension fixes applied"
+        # Verify the extensions are now loaded
+        print_status "INFO" "Verifying extensions after fixes..."
+        print_status "INFO" "Current PHP modules after fixes:"
+        php -m | sort
+        
+        local verified_fixes=()
+        local still_broken=()
+        
+        for ext in "${extensions[@]}"; do
+            if php -m | grep -q "^$ext$" 2>/dev/null; then
+                verified_fixes+=("$ext")
+                print_status "SUCCESS" "Extension $ext is now working"
+            else
+                still_broken+=("$ext")
+                print_status "WARN" "Extension $ext still not working after fixes"
+            fi
+        done
+        
+        if [[ ${#verified_fixes[@]} -gt 0 ]]; then
+            print_status "SUCCESS" "Successfully fixed extensions: ${verified_fixes[*]}"
+        fi
+        
+        if [[ ${#still_broken[@]} -gt 0 ]]; then
+            print_status "WARN" "Could not fix extensions: ${still_broken[*]}"
+        fi
     else
         print_status "WARN" "No extension fixes could be applied"
     fi
