@@ -291,36 +291,82 @@ check_php_extensions() {
     # Install missing packages
     if [[ ${#missing_packages[@]} -gt 0 ]]; then
         print_status "INFO" "Installing missing PHP extensions: ${missing_packages[*]}"
+        
+        if [[ "$VERBOSE" == true ]]; then
+            print_status "INFO" "Running: apt-get update && apt-get install -y ${missing_packages[*]}"
+        fi
+        
         apt-get update -qq >/dev/null 2>&1
-        apt-get install -y "${missing_packages[@]}" >/dev/null 2>&1 || {
+        
+        local install_output
+        install_output=$(apt-get install -y "${missing_packages[@]}" 2>&1)
+        local install_exit_code=$?
+        
+        if [[ $install_exit_code -ne 0 ]]; then
             print_status "ERROR" "Failed to install PHP extensions: ${missing_packages[*]}"
+            if [[ "$VERBOSE" == true ]]; then
+                echo "$install_output"
+            fi
             exit 1
-        }
+        else
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "SUCCESS" "Package installation completed"
+            fi
+        fi
     fi
     
     # Enable extensions in php.ini files by uncommenting them
     print_status "INFO" "Enabling PHP extensions in configuration files..."
     
     for ext in "${required_extensions[@]}"; do
+        if [[ "$VERBOSE" == true ]]; then
+            print_status "INFO" "Enabling extension: $ext"
+        fi
+        
         # Enable in CLI php.ini
         if [[ -f "$php_ini_cli" ]]; then
             sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "INFO" "Processed $ext in CLI php.ini"
+            fi
         fi
         
         # Enable in FPM php.ini  
         if [[ -f "$php_ini_fpm" ]]; then
             sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "INFO" "Processed $ext in FPM php.ini"
+            fi
         fi
     done
     
     # Restart PHP-FPM to load new extensions
+    if [[ "$VERBOSE" == true ]]; then
+        print_status "INFO" "Restarting PHP-FPM service..."
+    fi
     systemctl restart php8.3-fpm 2>/dev/null || true
     
+    # Give PHP a moment to restart
+    sleep 1
+    
     # Verify extensions are now loaded
+    if [[ "$VERBOSE" == true ]]; then
+        print_status "INFO" "Checking which extensions are now loaded..."
+        print_status "INFO" "All loaded PHP modules:"
+        php -m | sort
+    fi
+    
     local still_missing=()
     for ext in "${required_extensions[@]}"; do
         if ! php -m | grep -q "^$ext$" 2>/dev/null; then
             still_missing+=("$ext")
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "WARN" "Extension $ext still not loaded"
+            fi
+        else
+            if [[ "$VERBOSE" == true ]]; then
+                print_status "SUCCESS" "Extension $ext is now loaded"
+            fi
         fi
     done
     
