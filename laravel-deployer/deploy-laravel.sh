@@ -265,20 +265,29 @@ check_dependencies() {
 check_php_extensions() {
     print_status "INFO" "Checking required PHP extensions..."
     
-    local required_extensions=("dom" "fileinfo" "exif" "intl" "bcmath" "curl")
-    local missing_extensions=()
+    # Map extension names to package names
+    declare -A ext_packages=(
+        ["dom"]="php8.3-xml"
+        ["fileinfo"]="php8.3-fileinfo" 
+        ["exif"]="php8.3-exif"
+        ["intl"]="php8.3-intl"
+        ["bcmath"]="php8.3-bcmath"
+        ["curl"]="php8.3-curl"
+    )
     
-    for ext in "${required_extensions[@]}"; do
+    local missing_packages=()
+    
+    for ext in "${!ext_packages[@]}"; do
         if ! php -m | grep -q "^$ext$" 2>/dev/null; then
-            missing_extensions+=("php8.3-$ext")
+            missing_packages+=("${ext_packages[$ext]}")
         fi
     done
     
-    if [[ ${#missing_extensions[@]} -gt 0 ]]; then
-        print_status "INFO" "Installing missing PHP extensions: ${missing_extensions[*]}"
+    if [[ ${#missing_packages[@]} -gt 0 ]]; then
+        print_status "INFO" "Installing missing PHP extensions: ${missing_packages[*]}"
         apt-get update -qq >/dev/null 2>&1
-        apt-get install -y "${missing_extensions[@]}" >/dev/null 2>&1 || {
-            print_status "ERROR" "Failed to install PHP extensions: ${missing_extensions[*]}"
+        apt-get install -y "${missing_packages[@]}" >/dev/null 2>&1 || {
+            print_status "ERROR" "Failed to install PHP extensions: ${missing_packages[*]}"
             exit 1
         }
         
