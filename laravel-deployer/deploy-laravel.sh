@@ -284,7 +284,9 @@ check_php_extensions() {
     # Check if extensions are loaded and install packages if needed
     for ext in "${required_extensions[@]}"; do
         if ! php -m | grep -q "^$ext$" 2>/dev/null; then
-            missing_packages+=("${ext_packages[$ext]}")
+            if [[ -n "${ext_packages[$ext]:-}" ]]; then
+                missing_packages+=("${ext_packages[$ext]}")
+            fi
         fi
     done
     
@@ -645,6 +647,8 @@ fix_missing_extensions() {
             else
                 print_status "WARN" "Failed to install package: ${ext_packages[$ext]}"
             fi
+        else
+            print_status "WARN" "No package mapping found for extension: $ext"
         fi
     done
     
