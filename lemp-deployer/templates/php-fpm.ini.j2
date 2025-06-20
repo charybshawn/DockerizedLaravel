@@ -89,27 +89,17 @@ auto_detect_line_endings = Off
 ; Dynamic Extensions
 ;;;;;;;;;;;;;;;;;;;;;;
 
-; Core extensions (usually built-in)
-extension=ctype
+; Core extensions that need to be loaded
 extension=curl
 extension=dom
 extension=fileinfo
-extension=filter
-extension=hash
 extension=iconv
-extension=json
-extension=libxml
 extension=mbstring
-extension=openssl
-extension=pcre
 extension=pdo
 extension=phar
 extension=posix
 extension=readline
-extension=reflection
-extension=session
 extension=simplexml
-extension=spl
 extension=tokenizer
 extension=xml
 extension=xmlreader
@@ -124,7 +114,9 @@ extension=zip
 
 ; Optional but useful extensions
 extension=gd
-extension=opcache
+
+; Zend extensions
+zend_extension=opcache
 
 ;;;;;;;;;;;;;;;;;;
 ; Module Settings
