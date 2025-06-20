@@ -251,8 +251,13 @@ check_dependencies() {
     fi
 }
 
-# Check if site already exists
+# Check if site already exists (for non-interactive mode)
 check_existing_site() {
+    # Skip check in interactive mode since it's already handled in get_user_input
+    if [[ "$INTERACTIVE" == true ]]; then
+        return
+    fi
+    
     if [[ -d "/var/www/$SITE_NAME" && "$FORCE" != true ]]; then
         print_status "ERROR" "Site '$SITE_NAME' already exists. Use --force to overwrite"
         exit 1
