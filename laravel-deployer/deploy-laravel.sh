@@ -266,7 +266,7 @@ check_php_extensions() {
     print_status "INFO" "Checking required PHP extensions..."
     
     # Required extensions for Laravel
-    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom" "xmlreader")
+    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom" "xmlreader" "pdo" "pdo_mysql")
     local missing_packages=()
     local php_ini_cli="/etc/php/8.3/cli/php.ini"
     local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
@@ -274,11 +274,14 @@ check_php_extensions() {
     # Map extension names to package names
     declare -A ext_packages=(
         ["dom"]="php8.3-xml"
+        ["xmlreader"]="php8.3-xml"
         ["fileinfo"]="php8.3-fileinfo" 
         ["exif"]="php8.3-exif"
         ["intl"]="php8.3-intl"
         ["bcmath"]="php8.3-bcmath"
         ["curl"]="php8.3-curl"
+        ["pdo"]="php8.3-mysql"
+        ["pdo_mysql"]="php8.3-mysql"
     )
     
     # Check if extensions are loaded and install packages if needed
@@ -600,6 +603,7 @@ fix_missing_extensions() {
         ["gd"]="php8.3-gd"
         ["zip"]="php8.3-zip"
         ["mysqli"]="php8.3-mysql"
+        ["pdo"]="php8.3-mysql"
         ["pdo_mysql"]="php8.3-mysql"
         ["openssl"]="php8.3-common"
         ["mbstring"]="php8.3-mbstring"
