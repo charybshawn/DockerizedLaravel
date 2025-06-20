@@ -68,6 +68,7 @@
       loop_control:
         loop_var: site
       register: mysql_db_created
+      tags: laravel
       
     - name: Create PostgreSQL database
       become: yes
@@ -91,6 +92,7 @@
     - name: Set up Laravel sites
       include_role:
         name: laravel_site
+      tags: laravel
       vars:
         site_name: "{{ site.name }}"
         site_domain: "{{ site.domain | default(site.name + '.local') }}"
