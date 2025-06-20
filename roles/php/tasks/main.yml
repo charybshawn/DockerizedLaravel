@@ -28,6 +28,21 @@
   notify:
     - restart php-fpm services
 
+- name: Check if built-in PHP extensions are available
+  command: "dpkg -l | grep 'php{{ item }}-'"
+  register: php_packages_check
+  loop: "{{ php_versions }}"
+  changed_when: false
+  failed_when: false
+  become: yes
+  tags: ['php', 'packages']
+
+- name: Display installed PHP packages
+  debug:
+    msg: "Installed PHP {{ item.item }} packages: {{ item.stdout_lines | join(', ') }}"
+  loop: "{{ php_packages_check.results }}"
+  tags: ['php', 'info']
+
 - name: Create PHP-FPM configuration directories
   file:
     path: "/etc/php/{{ item }}/fpm/pool.d"

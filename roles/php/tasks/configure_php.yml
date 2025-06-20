@@ -56,9 +56,28 @@
     line: "extension={{ item }}"
     backup: yes
   loop:
-    - phar
     - mbstring
     - iconv
+  become: yes
+  notify:
+    - restart php-fpm services
+
+- name: Ensure phar extension is not disabled
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+    regexp: "^;?phar\\.readonly\\s*="
+    line: "phar.readonly = Off"
+    backup: yes
+  become: yes
+  notify:
+    - restart php-fpm services
+
+- name: Remove any phar extension disable directives
+  lineinfile:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
+    regexp: "^extension=phar$"
+    state: absent
+    backup: yes
   become: yes
   notify:
     - restart php-fpm services
