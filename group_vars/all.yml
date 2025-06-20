@@ -22,7 +22,6 @@ php_extensions:
   - soap
   - xdebug
   - redis
-  - phar
 
 # Node.js Configuration
 node_version: "18"  # LTS version

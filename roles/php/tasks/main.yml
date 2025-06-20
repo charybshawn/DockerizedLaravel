@@ -19,9 +19,9 @@
 
 - name: Install PHP versions and extensions
   apt:
-    name: "{{ item.0 }}-{{ item.1 }}"
+    name: "php{{ item.0 }}-{{ item.1 }}"
     state: present
-  loop: "{{ php_versions | product(['php'] + php_extensions) | list }}"
+  loop: "{{ php_versions | product(php_extensions) | list }}"
   when: ansible_os_family == "Debian"
   become: yes
   tags: ['php', 'packages']
