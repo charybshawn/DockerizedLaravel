@@ -5,6 +5,7 @@
 # PHP Configuration
 php_versions_available: ["8.1", "8.2", "8.3", "8.4"]
 default_php_version: "8.3"  # More stable than 8.4
+php_version_list: ["8.3"]  # PHP versions to install
 php_extensions:
   - fpm
   - cli
@@ -31,6 +32,10 @@ npm_global_packages:
 
 # Database Configuration
 supported_db_systems: ["mysql", "postgres", "sqlite"]
+db_systems: "mysql"  # Default database systems to install
+install_mysql: true
+install_postgres: false
+install_sqlite: false
 
 # Nginx Configuration
 nginx_worker_processes: auto
@@ -56,3 +61,10 @@ default_site_config:
   ssl_enabled: false
   auto_update: false
   php_version: "{{ default_php_version }}"
+
+# Sample site configuration
+create_sample: true
+sample_site_name: "laravel"
+
+# Adminer configuration
+adminer_enabled: true
