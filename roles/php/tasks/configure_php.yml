@@ -59,6 +59,7 @@
     - phar
     - mbstring
     - iconv
+    - tokenizer
   become: yes
   notify:
     - restart php-fpm services
