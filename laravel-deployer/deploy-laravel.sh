@@ -478,10 +478,19 @@ configure_laravel() {
         local app_url="${app_url_scheme}://${DOMAIN}${app_url_port}"
         
         if [[ -f ".env.example" ]]; then
+            print_status "INFO" "Creating .env from .env.example..."
             cp ".env.example" "/var/www/$SITE_NAME/shared/.env"
-            # Update APP_URL in the copied .env.example file
+            # Update configuration in the copied .env file
             sed -i "s|APP_URL=.*|APP_URL=$app_url|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=mysql|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|DB_HOST=.*|DB_HOST=127.0.0.1|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|DB_PORT=.*|DB_PORT=3306|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|DB_DATABASE=.*|DB_DATABASE=$DATABASE_NAME|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|DB_USERNAME=.*|DB_USERNAME=$DATABASE_USER|g" "/var/www/$SITE_NAME/shared/.env"
+            sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=$DATABASE_PASSWORD|g" "/var/www/$SITE_NAME/shared/.env"
+            print_status "SUCCESS" ".env file created and configured with database details"
         else
+            print_status "INFO" "No .env.example found, creating default .env..."
             cat > "/var/www/$SITE_NAME/shared/.env" << EOF
 APP_NAME="$SITE_NAME"
 APP_ENV=production
@@ -522,6 +531,7 @@ MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS="hello@example.com"
 MAIL_FROM_NAME="\${APP_NAME}"
 EOF
+            print_status "SUCCESS" "Default .env file created with database configuration"
         fi
         
         chown www-data:www-data "/var/www/$SITE_NAME/shared/.env"
@@ -750,6 +760,7 @@ main() {
     echo "  URL: ${url_scheme}://${DOMAIN}${url_port}"
     echo "  Document Root: /var/www/$SITE_NAME/current/public"
     echo "  Database: $DATABASE_NAME"
+    echo "  Nginx Config: /etc/nginx/sites-available/$SITE_NAME"
     echo "  Logs: /var/log/nginx/${SITE_NAME}_*.log"
     echo
     echo "Next Steps:"
