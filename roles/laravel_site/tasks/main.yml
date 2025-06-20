@@ -50,7 +50,7 @@
   when: git_repo is defined and git_repo != ""
 
 - name: Create fresh Laravel project if no Git repo is specified
-  shell: composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction --ignore-platform-req=ext-tokenizer
+  shell: composer create-project laravel/laravel /var/www/{{ site_name }} --no-interaction
   args:
     creates: "/var/www/{{ site_name }}/artisan"
   become: yes
@@ -123,7 +123,7 @@
     {% if force_ignore_php_version | default(false) | bool %}
     composer install --no-interaction --ignore-platform-reqs
     {% else %}
-    composer install --no-interaction --ignore-platform-req=ext-tokenizer
+    composer install --no-interaction
     {% endif %}
   become: yes
   become_user: "{{ site_user }}"

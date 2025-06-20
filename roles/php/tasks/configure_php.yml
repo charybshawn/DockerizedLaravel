@@ -62,3 +62,27 @@
   become: yes
   notify:
     - restart php-fpm services
+
+- name: Verify tokenizer extension is available
+  command: "php{{ php_version }} -m"
+  register: php_modules_check
+  changed_when: false
+  become: yes
+
+- name: Display tokenizer status
+  debug:
+    msg: |
+      Tokenizer extension status: {{ 'AVAILABLE' if 'tokenizer' in php_modules_check.stdout else 'NOT FOUND' }}
+      All loaded modules: {{ php_modules_check.stdout_lines | join(', ') }}
+  
+- name: Check PHP compilation info for tokenizer
+  command: "php{{ php_version }} -i"
+  register: php_info_check
+  changed_when: false
+  become: yes
+
+- name: Display tokenizer compilation info
+  debug:
+    msg: |
+      Tokenizer in phpinfo: {{ 'YES' if 'tokenizer' in php_info_check.stdout else 'NO' }}
+      Configure Command includes tokenizer: {{ 'YES' if '--enable-tokenizer' in php_info_check.stdout else 'NO' }}
