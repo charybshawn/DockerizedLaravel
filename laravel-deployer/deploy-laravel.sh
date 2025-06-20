@@ -261,6 +261,36 @@ check_dependencies() {
     print_status "SUCCESS" "All dependencies found"
 }
 
+# Check and install required PHP extensions
+check_php_extensions() {
+    print_status "INFO" "Checking required PHP extensions..."
+    
+    local required_extensions=("dom" "fileinfo" "exif" "intl" "bcmath" "curl")
+    local missing_extensions=()
+    
+    for ext in "${required_extensions[@]}"; do
+        if ! php -m | grep -q "^$ext$" 2>/dev/null; then
+            missing_extensions+=("php8.3-$ext")
+        fi
+    done
+    
+    if [[ ${#missing_extensions[@]} -gt 0 ]]; then
+        print_status "INFO" "Installing missing PHP extensions: ${missing_extensions[*]}"
+        apt-get update -qq >/dev/null 2>&1
+        apt-get install -y "${missing_extensions[@]}" >/dev/null 2>&1 || {
+            print_status "ERROR" "Failed to install PHP extensions: ${missing_extensions[*]}"
+            exit 1
+        }
+        
+        # Restart PHP-FPM to load new extensions
+        systemctl restart php8.3-fpm 2>/dev/null || true
+        
+        print_status "SUCCESS" "PHP extensions installed successfully"
+    else
+        print_status "SUCCESS" "All required PHP extensions found"
+    fi
+}
+
 # Check if site already exists (for non-interactive mode)
 check_existing_site() {
     # Skip check in interactive mode since it's already handled in get_user_input
@@ -620,6 +650,8 @@ main() {
     echo "DEBUG: Passed check_privileges"
     check_dependencies
     echo "DEBUG: Passed check_dependencies"
+    check_php_extensions
+    echo "DEBUG: Passed check_php_extensions"
     
     # Get user input (interactive or validate flags)
     get_user_input
