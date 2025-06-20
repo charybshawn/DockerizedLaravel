@@ -49,6 +49,7 @@ OPTIONS:
     -m, --mode MODE         Installation mode (full|custom|validate|health)
     -c, --config FILE       Configuration file path
     -v, --verbose          Enable verbose output
+    -q, --quiet            Minimal output (only major milestones and errors)
     -d, --dry-run          Perform dry run without making changes
     -h, --help             Display this help message
     --version              Display version information
@@ -65,6 +66,9 @@ MODES:
 EXAMPLES:
     # Full installation
     sudo $(basename "$0") --mode full
+
+    # Quiet installation (minimal output)
+    sudo $(basename "$0") --mode full --quiet
 
     # Custom installation with specific configuration
     sudo $(basename "$0") --mode custom --config myconfig.yml
@@ -86,6 +90,7 @@ parse_arguments() {
     local mode="$MODE_FULL"
     local config_file=""
     local verbose=false
+    local quiet=false
     local dry_run=false
     local check_only=false
     local skip_validation=false
@@ -104,6 +109,11 @@ parse_arguments() {
             -v|--verbose)
                 verbose=true
                 LOG_LEVEL=$LOG_LEVEL_DEBUG
+                shift
+                ;;
+            -q|--quiet)
+                quiet=true
+                LOG_LEVEL=$LOG_LEVEL_ERROR
                 shift
                 ;;
             -d|--dry-run)
@@ -142,6 +152,7 @@ parse_arguments() {
     export INSTALL_MODE="$mode"
     export CONFIG_FILE="$config_file"
     export VERBOSE="$verbose"
+    export QUIET="$quiet"
     export DRY_RUN="$dry_run"
     export CHECK_ONLY="$check_only"
     export SKIP_VALIDATION="$skip_validation"
@@ -219,7 +230,7 @@ check_system_requirements() {
 
 # Install prerequisites
 install_prerequisites() {
-    print_status "PROGRESS" "Installing prerequisites..."
+    print_status "MILESTONE" "Installing prerequisites..."
     
     local packages=(
         "software-properties-common"
@@ -244,7 +255,7 @@ install_prerequisites() {
 
 # Install Ansible
 install_ansible() {
-    print_status "PROGRESS" "Checking Ansible installation..."
+    print_status "MILESTONE" "Installing Ansible..."
     
     if command -v ansible &> /dev/null; then
         local ansible_version=$(ansible --version | head -n1 | awk '{print $2}')
@@ -267,7 +278,7 @@ install_ansible() {
 
 # Setup Ansible vault
 setup_ansible_vault() {
-    print_status "PROGRESS" "Setting up Ansible vault..."
+    print_status "MILESTONE" "Setting up Ansible vault..."
     
     if [[ -f "$VAULT_FILE" ]]; then
         print_status "INFO" "Ansible vault already exists"
@@ -361,7 +372,7 @@ run_full_installation() {
     setup_ansible_vault
     
     # Run Ansible playbook
-    print_status "PROGRESS" "Executing Ansible playbook..."
+    print_status "MILESTONE" "Installing Laravel environment..."
     
     local ansible_args=()
     if [[ -n "${VAULT_PASSWORD_FILE}" ]] && [[ -f "${VAULT_PASSWORD_FILE}" ]]; then
@@ -372,6 +383,8 @@ run_full_installation() {
     
     if [[ "${VERBOSE}" == true ]]; then
         ansible_args+=("-vvv")
+    elif [[ "${QUIET}" == true ]]; then
+        ansible_args+=("--quiet")
     fi
     
     if [[ "${DRY_RUN}" == true ]]; then

@@ -134,6 +134,20 @@ print_status() {
     local message=$2
     local timestamp=$(date '+%H:%M:%S')
     
+    # In quiet mode, only show SUCCESS, ERROR, and major milestones
+    if [[ "${QUIET}" == true ]]; then
+        case "$status" in
+            "SUCCESS"|"ERROR")
+                ;;
+            "MILESTONE")
+                status="INFO"
+                ;;
+            *)
+                return 0  # Skip other messages in quiet mode
+                ;;
+        esac
+    fi
+    
     case "$status" in
         "SUCCESS")
             echo -e "\033[32m[SUCCESS]\033[0m ${message}"
@@ -149,6 +163,9 @@ print_status() {
             ;;
         "PROGRESS")
             echo -e "\033[36m[PROGRESS]\033[0m ${message}"
+            ;;
+        "MILESTONE")
+            echo -e "\033[35m[MILESTONE]\033[0m ${message}"
             ;;
         *)
             echo "[${timestamp}] ${message}"
