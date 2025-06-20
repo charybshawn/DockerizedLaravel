@@ -1,19 +1,9 @@
 ---
-- name: Add NodeSource GPG key
-  apt_key:
-    url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
-    state: present
-
-- name: Add NodeSource repository
-  apt_repository:
-    repo: "deb https://deb.nodesource.com/node_lts.x {{ ansible_distribution_release }} main"
-    state: present
-    update_cache: yes
-
-- name: Install Node.js and npm
+- name: Install Node.js and npm from Ubuntu repositories
   apt:
     name:
       - nodejs
+      - npm
     state: present
     update_cache: yes
 
