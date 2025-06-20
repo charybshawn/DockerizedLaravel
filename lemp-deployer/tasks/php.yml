@@ -79,6 +79,10 @@
     - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
     - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
     - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
+    - { regexp: '^;?extension=curl', line: 'extension=curl' }
+    - { regexp: '^;?extension=fileinfo', line: 'extension=fileinfo' }
+    - { regexp: '^;?extension=exif', line: 'extension=exif' }
+    - { regexp: '^;?extension=intl', line: 'extension=intl' }
   notify: restart php-fpm
 
 - name: Enable PHP extensions in CLI php.ini
@@ -92,6 +96,10 @@
     - { regexp: '^;?extension=iconv', line: 'extension=iconv' }
     - { regexp: '^;?extension=mbstring', line: 'extension=mbstring' }
     - { regexp: '^;?extension=tokenizer', line: 'extension=tokenizer' }
+    - { regexp: '^;?extension=curl', line: 'extension=curl' }
+    - { regexp: '^;?extension=fileinfo', line: 'extension=fileinfo' }
+    - { regexp: '^;?extension=exif', line: 'extension=exif' }
+    - { regexp: '^;?extension=intl', line: 'extension=intl' }
 
 - name: Create PHP-FPM main configuration
   copy:

@@ -265,6 +265,12 @@ check_dependencies() {
 check_php_extensions() {
     print_status "INFO" "Checking required PHP extensions..."
     
+    # Required extensions for Laravel
+    local required_extensions=("curl" "fileinfo" "exif" "intl" "bcmath" "dom")
+    local missing_packages=()
+    local php_ini_cli="/etc/php/8.3/cli/php.ini"
+    local php_ini_fpm="/etc/php/8.3/fpm/php.ini"
+    
     # Map extension names to package names
     declare -A ext_packages=(
         ["dom"]="php8.3-xml"
@@ -275,14 +281,14 @@ check_php_extensions() {
         ["curl"]="php8.3-curl"
     )
     
-    local missing_packages=()
-    
-    for ext in "${!ext_packages[@]}"; do
+    # Check if extensions are loaded and install packages if needed
+    for ext in "${required_extensions[@]}"; do
         if ! php -m | grep -q "^$ext$" 2>/dev/null; then
             missing_packages+=("${ext_packages[$ext]}")
         fi
     done
     
+    # Install missing packages
     if [[ ${#missing_packages[@]} -gt 0 ]]; then
         print_status "INFO" "Installing missing PHP extensions: ${missing_packages[*]}"
         apt-get update -qq >/dev/null 2>&1
@@ -290,13 +296,39 @@ check_php_extensions() {
             print_status "ERROR" "Failed to install PHP extensions: ${missing_packages[*]}"
             exit 1
         }
+    fi
+    
+    # Enable extensions in php.ini files by uncommenting them
+    print_status "INFO" "Enabling PHP extensions in configuration files..."
+    
+    for ext in "${required_extensions[@]}"; do
+        # Enable in CLI php.ini
+        if [[ -f "$php_ini_cli" ]]; then
+            sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
+        fi
         
-        # Restart PHP-FPM to load new extensions
-        systemctl restart php8.3-fpm 2>/dev/null || true
-        
-        print_status "SUCCESS" "PHP extensions installed successfully"
+        # Enable in FPM php.ini  
+        if [[ -f "$php_ini_fpm" ]]; then
+            sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
+        fi
+    done
+    
+    # Restart PHP-FPM to load new extensions
+    systemctl restart php8.3-fpm 2>/dev/null || true
+    
+    # Verify extensions are now loaded
+    local still_missing=()
+    for ext in "${required_extensions[@]}"; do
+        if ! php -m | grep -q "^$ext$" 2>/dev/null; then
+            still_missing+=("$ext")
+        fi
+    done
+    
+    if [[ ${#still_missing[@]} -gt 0 ]]; then
+        print_status "WARN" "Some extensions still not loaded: ${still_missing[*]}"
+        print_status "INFO" "Continuing deployment - Composer will attempt to work around missing extensions"
     else
-        print_status "SUCCESS" "All required PHP extensions found"
+        print_status "SUCCESS" "All required PHP extensions enabled successfully"
     fi
 }
 
