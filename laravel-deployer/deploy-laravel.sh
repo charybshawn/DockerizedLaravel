@@ -315,10 +315,64 @@ check_php_extensions() {
         fi
     fi
     
-    # Enable extensions in php.ini files by uncommenting them
+    # Clean up conflicting PDO extensions first
+    print_status "INFO" "Cleaning up PDO extension conflicts..."
+    for ini_file in "$php_ini_cli" "$php_ini_fpm"; do
+        if [[ -f "$ini_file" ]]; then
+            # Disable problematic PDO extensions that aren't needed
+            sed -i 's/^extension=pdo_firebird/;extension=pdo_firebird/' "$ini_file" 2>/dev/null || true
+            sed -i 's/^extension=pdo_oci/;extension=pdo_oci/' "$ini_file" 2>/dev/null || true
+            sed -i 's/^extension=pdo_odbc/;extension=pdo_odbc/' "$ini_file" 2>/dev/null || true
+            sed -i 's/^extension=pdo_pgsql/;extension=pdo_pgsql/' "$ini_file" 2>/dev/null || true
+            sed -i 's/^extension=pdo_sqlite/;extension=pdo_sqlite/' "$ini_file" 2>/dev/null || true
+        fi
+    done
+    
+    # Enable extensions in php.ini files with proper PDO order
     print_status "INFO" "Enabling PHP extensions in configuration files..."
     
+    # Handle PDO first (must be loaded before pdo_mysql)
+    for ext in "pdo" "pdo_mysql"; do
+        if [[ " ${required_extensions[*]} " =~ " $ext " ]]; then
+            print_status "INFO" "Enabling extension: $ext"
+            
+            # Enable in CLI php.ini
+            if [[ -f "$php_ini_cli" ]]; then
+                # Check if already enabled
+                if grep -q "^extension=${ext}" "$php_ini_cli" 2>/dev/null; then
+                    print_status "INFO" "$ext already enabled in CLI php.ini"
+                elif grep -q "^;extension=${ext}" "$php_ini_cli" 2>/dev/null; then
+                    sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
+                    print_status "SUCCESS" "Uncommented $ext in CLI php.ini"
+                else
+                    echo "extension=${ext}" >> "$php_ini_cli"
+                    print_status "SUCCESS" "Added $ext to CLI php.ini"
+                fi
+            fi
+            
+            # Enable in FPM php.ini  
+            if [[ -f "$php_ini_fpm" ]]; then
+                # Check if already enabled
+                if grep -q "^extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
+                    print_status "INFO" "$ext already enabled in FPM php.ini"
+                elif grep -q "^;extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
+                    sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
+                    print_status "SUCCESS" "Uncommented $ext in FPM php.ini"
+                else
+                    echo "extension=${ext}" >> "$php_ini_fpm"
+                    print_status "SUCCESS" "Added $ext to FPM php.ini"
+                fi
+            fi
+        fi
+    done
+    
+    # Handle other extensions
     for ext in "${required_extensions[@]}"; do
+        # Skip PDO extensions as they're handled above
+        if [[ "$ext" == "pdo" || "$ext" == "pdo_mysql" ]]; then
+            continue
+        fi
+        
         print_status "INFO" "Enabling extension: $ext"
         
         # Enable in CLI php.ini
