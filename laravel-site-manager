@@ -251,6 +251,10 @@ create_site() {
         extra_vars="$extra_vars git_repo=$GIT_REPO git_branch=$GIT_BRANCH"
     fi
     
+    # Log the variables being passed
+    log_info "Ansible variables: $extra_vars"
+    print_status "INFO" "Variables: $extra_vars"
+    
     if ! ansible-playbook \
         -e "$extra_vars" \
         -i "${SCRIPT_DIR}/inventory/hosts.yml" \
@@ -413,26 +417,45 @@ display_site_info() {
     print_status "INFO" "Site Information: $name"
     echo "----------------------------------------"
     
+    log_info "Checking site information for: $name"
+    
     if [[ -f "$status_file" ]]; then
         source "$status_file"
         
-        echo "Status: $(site_is_enabled "$name" && echo "Enabled" || echo "Disabled")"
-        echo "Domain: $DOMAIN"
-        echo "Port: $PORT"
-        echo "PHP Version: $PHP_VERSION"
-        echo "Document Root: $DOCUMENT_ROOT"
-        echo "Nginx Config: $NGINX_CONFIG"
+        echo "✓ Status: $(site_is_enabled "$name" && echo "Enabled" || echo "Disabled")"
+        echo "✓ Domain: $DOMAIN"
+        echo "✓ Port: $PORT"
+        echo "✓ PHP Version: $PHP_VERSION"
+        echo "✓ Document Root: $DOCUMENT_ROOT"
+        echo "✓ Nginx Config: $NGINX_CONFIG"
         
         if [[ -n "${GIT_REPO:-}" ]]; then
-            echo "Git Repository: $GIT_REPO"
-            echo "Git Branch: $GIT_BRANCH"
+            echo "✓ Git Repository: $GIT_REPO"
+            echo "✓ Git Branch: $GIT_BRANCH"
         fi
         
-        echo "Created: $CREATED"
+        echo "✓ Created: $CREATED"
         echo ""
         echo "Access URLs:"
         echo "  - http://$DOMAIN$([ "$PORT" != "80" ] && echo ":$PORT")"
         echo "  - http://$(hostname -I | awk '{print $1}')$([ "$PORT" != "80" ] && echo ":$PORT")"
+        
+        # Verify actual file existence
+        if [[ -f "$NGINX_CONFIG" ]]; then
+            echo "✓ Nginx config file exists"
+            log_info "Nginx config file verified: $NGINX_CONFIG"
+        else
+            echo "✗ Nginx config file missing: $NGINX_CONFIG"
+            log_error "Nginx config file not found: $NGINX_CONFIG"
+        fi
+        
+        if [[ -d "$DOCUMENT_ROOT" ]]; then
+            echo "✓ Document root exists"
+            log_info "Document root verified: $DOCUMENT_ROOT"
+        else
+            echo "✗ Document root missing: $DOCUMENT_ROOT"
+            log_error "Document root not found: $DOCUMENT_ROOT"
+        fi
         
         if [[ -f "$summary_file" ]]; then
             echo ""
@@ -441,6 +464,37 @@ display_site_info() {
         fi
     else
         print_status "WARNING" "Site configuration not found"
+        log_warn "No status file found for site: $name"
+        
+        # Additional debugging information
+        echo "Debugging Information:"
+        echo "- Expected status file: $status_file"
+        echo "- Sites config directory: $SITES_CONFIG_DIR"
+        
+        if [[ -d "$SITES_CONFIG_DIR" ]]; then
+            echo "- Available site configs:"
+            ls -la "$SITES_CONFIG_DIR/" 2>/dev/null | grep -v "^total" | head -5
+        else
+            echo "- Sites config directory does not exist"
+            log_error "Sites config directory missing: $SITES_CONFIG_DIR"
+        fi
+        
+        # Check if Nginx config exists anyway
+        if [[ -f "/etc/nginx/sites-available/$name" ]]; then
+            echo "- Nginx config exists: /etc/nginx/sites-available/$name"
+            log_info "Found Nginx config despite missing status file"
+        else
+            echo "- No Nginx config found: /etc/nginx/sites-available/$name"
+            log_warn "No Nginx config found for site: $name"
+        fi
+        
+        if [[ -d "/var/www/$name" ]]; then
+            echo "- Application directory exists: /var/www/$name"
+            log_info "Found application directory: /var/www/$name"
+        else
+            echo "- No application directory: /var/www/$name"
+            log_warn "No application directory found: /var/www/$name"
+        fi
     fi
 }
 
