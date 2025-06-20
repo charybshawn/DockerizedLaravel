@@ -28,6 +28,24 @@
     state: present
   notify: restart php-fpm
 
+- name: Ensure PHP-FPM configuration directory exists
+  file:
+    path: "/etc/php/{{ php_version }}/fpm"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy default php.ini for FPM if it doesn't exist
+  copy:
+    src: "/usr/lib/php/{{ php_version }}/php.ini-production"
+    dest: "/etc/php/{{ php_version }}/fpm/php.ini"
+    remote_src: yes
+    owner: root
+    group: root
+    mode: '0644'
+    force: no
+
 - name: Configure PHP-FPM
   lineinfile:
     path: "/etc/php/{{ php_version }}/fpm/php.ini"
