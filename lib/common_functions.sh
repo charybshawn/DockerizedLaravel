@@ -38,19 +38,19 @@ LOG_LEVEL=${LOG_LEVEL:-$LOG_LEVEL_INFO}
 init_logging() {
     # Create log directory if it doesn't exist
     if [[ ! -d "$LOG_DIR" ]]; then
-        mkdir -p "$LOG_DIR" || {
+        mkdir -p "$LOG_DIR" 2>/dev/null || {
             echo "[ERROR] Failed to create log directory: $LOG_DIR" >&2
             return 1
         }
     fi
     
     # Set appropriate permissions
-    chmod 755 "$LOG_DIR"
+    chmod 755 "$LOG_DIR" 2>/dev/null || true
     
     # Initialize log files
     for log_file in "$LOG_FILE" "$AUDIT_LOG" "$ERROR_LOG"; do
-        touch "$log_file"
-        chmod 644 "$log_file"
+        touch "$log_file" 2>/dev/null || true
+        chmod 644 "$log_file" 2>/dev/null || true
     done
     
     # Log initialization
@@ -370,7 +370,21 @@ acquire_lock() {
     local timeout=${2:-30}
     local elapsed=0
     
+    # Ensure log directory exists
+    mkdir -p "$LOG_DIR" 2>/dev/null || true
+    
     while [[ -f "$lock_file" ]] && [[ $elapsed -lt $timeout ]]; do
+        # Check if the process that created the lock is still running
+        if [[ -f "$lock_file" ]]; then
+            local lock_pid=$(cat "$lock_file" 2>/dev/null || echo "0")
+            if ! kill -0 "$lock_pid" 2>/dev/null; then
+                # Process is dead, remove stale lock
+                rm -f "$lock_file"
+                log_info "Removed stale lock file for ${lock_name} (PID $lock_pid no longer exists)"
+                break
+            fi
+        fi
+        
         log_debug "Waiting for lock: ${lock_name}"
         sleep 1
         elapsed=$((elapsed + 1))
