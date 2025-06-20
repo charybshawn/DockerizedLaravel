@@ -1,6 +1,15 @@
 ---
 # PHP configuration task for a specific version and SAPI
 
+- name: Create PHP configuration directory
+  file:
+    path: "/etc/php/{{ php_version }}/{{ php_sapi }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
 - name: Check if php.ini exists
   stat:
     path: "/etc/php/{{ php_version }}/{{ php_sapi }}/php.ini"
