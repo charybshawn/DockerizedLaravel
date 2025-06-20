@@ -242,13 +242,19 @@ check_dependencies() {
     command -v composer >/dev/null 2>&1 || missing_deps+=("composer")
     command -v nginx >/dev/null 2>&1 || missing_deps+=("nginx")
     command -v git >/dev/null 2>&1 || missing_deps+=("git")
-    command -v mysql >/dev/null 2>&1 || missing_deps+=("mysql-client")
+    
+    # Check if MySQL/MariaDB service is available (don't require client)
+    if ! systemctl is-active --quiet mariadb 2>/dev/null && ! systemctl is-active --quiet mysql 2>/dev/null; then
+        missing_deps+=("mysql/mariadb service")
+    fi
     
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         print_status "ERROR" "Missing dependencies: ${missing_deps[*]}"
         print_status "INFO" "Please install the LEMP stack first using the lemp-deployer"
         exit 1
     fi
+    
+    print_status "SUCCESS" "All dependencies found"
 }
 
 # Check if site already exists (for non-interactive mode)
@@ -287,22 +293,38 @@ get_database_password() {
 create_database() {
     print_status "INFO" "Creating database '$DATABASE_NAME' and user '$DATABASE_USER'..."
     
-    mysql -e "CREATE DATABASE IF NOT EXISTS \`$DATABASE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || {
-        print_status "ERROR" "Failed to create database"
+    # Try different MySQL command variations
+    local mysql_cmd=""
+    if command -v mysql >/dev/null 2>&1; then
+        mysql_cmd="mysql"
+    elif command -v mariadb >/dev/null 2>&1; then
+        mysql_cmd="mariadb"
+    else
+        # Install mysql client if not available
+        apt-get update -qq >/dev/null 2>&1
+        apt-get install -y mysql-client >/dev/null 2>&1 || {
+            print_status "ERROR" "Cannot install MySQL client"
+            exit 1
+        }
+        mysql_cmd="mysql"
+    fi
+    
+    $mysql_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DATABASE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || {
+        print_status "ERROR" "Failed to create database - check MySQL root access"
         exit 1
     }
     
-    mysql -e "CREATE USER IF NOT EXISTS '$DATABASE_USER'@'localhost' IDENTIFIED BY '$DATABASE_PASSWORD';" 2>/dev/null || {
+    $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DATABASE_USER'@'localhost' IDENTIFIED BY '$DATABASE_PASSWORD';" 2>/dev/null || {
         print_status "ERROR" "Failed to create database user"
         exit 1
     }
     
-    mysql -e "GRANT ALL PRIVILEGES ON \`$DATABASE_NAME\`.* TO '$DATABASE_USER'@'localhost';" 2>/dev/null || {
+    $mysql_cmd -e "GRANT ALL PRIVILEGES ON \`$DATABASE_NAME\`.* TO '$DATABASE_USER'@'localhost';" 2>/dev/null || {
         print_status "ERROR" "Failed to grant database privileges"
         exit 1
     }
     
-    mysql -e "FLUSH PRIVILEGES;" 2>/dev/null || {
+    $mysql_cmd -e "FLUSH PRIVILEGES;" 2>/dev/null || {
         print_status "ERROR" "Failed to flush privileges"
         exit 1
     }
