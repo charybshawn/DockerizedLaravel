@@ -292,9 +292,7 @@ check_php_extensions() {
     if [[ ${#missing_packages[@]} -gt 0 ]]; then
         print_status "INFO" "Installing missing PHP extensions: ${missing_packages[*]}"
         
-        if [[ "$VERBOSE" == true ]]; then
-            print_status "INFO" "Running: apt-get update && apt-get install -y ${missing_packages[*]}"
-        fi
+        print_status "INFO" "Running: apt-get update && apt-get install -y ${missing_packages[*]}"
         
         apt-get update -qq >/dev/null 2>&1
         
@@ -304,14 +302,11 @@ check_php_extensions() {
         
         if [[ $install_exit_code -ne 0 ]]; then
             print_status "ERROR" "Failed to install PHP extensions: ${missing_packages[*]}"
-            if [[ "$VERBOSE" == true ]]; then
-                echo "$install_output"
-            fi
+            echo "$install_output"
             exit 1
         else
-            if [[ "$VERBOSE" == true ]]; then
-                print_status "SUCCESS" "Package installation completed"
-            fi
+            print_status "SUCCESS" "Package installation completed"
+            echo "$install_output"
         fi
     fi
     
@@ -319,54 +314,56 @@ check_php_extensions() {
     print_status "INFO" "Enabling PHP extensions in configuration files..."
     
     for ext in "${required_extensions[@]}"; do
-        if [[ "$VERBOSE" == true ]]; then
-            print_status "INFO" "Enabling extension: $ext"
-        fi
+        print_status "INFO" "Enabling extension: $ext"
         
         # Enable in CLI php.ini
         if [[ -f "$php_ini_cli" ]]; then
-            sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
-            if [[ "$VERBOSE" == true ]]; then
-                print_status "INFO" "Processed $ext in CLI php.ini"
+            # Check if already enabled
+            if grep -q "^extension=${ext}" "$php_ini_cli" 2>/dev/null; then
+                print_status "INFO" "$ext already enabled in CLI php.ini"
+            elif grep -q "^;extension=${ext}" "$php_ini_cli" 2>/dev/null; then
+                sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_cli" 2>/dev/null || true
+                print_status "SUCCESS" "Uncommented $ext in CLI php.ini"
+            else
+                echo "extension=${ext}" >> "$php_ini_cli"
+                print_status "SUCCESS" "Added $ext to CLI php.ini"
             fi
         fi
         
         # Enable in FPM php.ini  
         if [[ -f "$php_ini_fpm" ]]; then
-            sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
-            if [[ "$VERBOSE" == true ]]; then
-                print_status "INFO" "Processed $ext in FPM php.ini"
+            # Check if already enabled
+            if grep -q "^extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
+                print_status "INFO" "$ext already enabled in FPM php.ini"
+            elif grep -q "^;extension=${ext}" "$php_ini_fpm" 2>/dev/null; then
+                sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_fpm" 2>/dev/null || true
+                print_status "SUCCESS" "Uncommented $ext in FPM php.ini"
+            else
+                echo "extension=${ext}" >> "$php_ini_fpm"
+                print_status "SUCCESS" "Added $ext to FPM php.ini"
             fi
         fi
     done
     
     # Restart PHP-FPM to load new extensions
-    if [[ "$VERBOSE" == true ]]; then
-        print_status "INFO" "Restarting PHP-FPM service..."
-    fi
+    print_status "INFO" "Restarting PHP-FPM service..."
     systemctl restart php8.3-fpm 2>/dev/null || true
     
     # Give PHP a moment to restart
     sleep 1
     
     # Verify extensions are now loaded
-    if [[ "$VERBOSE" == true ]]; then
-        print_status "INFO" "Checking which extensions are now loaded..."
-        print_status "INFO" "All loaded PHP modules:"
-        php -m | sort
-    fi
+    print_status "INFO" "Checking which extensions are now loaded..."
+    print_status "INFO" "All loaded PHP modules:"
+    php -m | sort
     
     local still_missing=()
     for ext in "${required_extensions[@]}"; do
         if ! php -m | grep -q "^$ext$" 2>/dev/null; then
             still_missing+=("$ext")
-            if [[ "$VERBOSE" == true ]]; then
-                print_status "WARN" "Extension $ext still not loaded"
-            fi
+            print_status "WARN" "Extension $ext still not loaded"
         else
-            if [[ "$VERBOSE" == true ]]; then
-                print_status "SUCCESS" "Extension $ext is now loaded"
-            fi
+            print_status "SUCCESS" "Extension $ext is now loaded"
         fi
     done
     
