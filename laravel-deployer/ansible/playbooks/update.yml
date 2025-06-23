@@ -1,0 +1,244 @@
+---
+- name: Update Laravel Site
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Required variables (must be provided via -e)
+    # site_name: ""
+    
+    # Optional variables with defaults
+    github_branch: "{{ github_branch | default('main') }}"
+    
+    # Derived variables
+    site_path: "{{ web_root }}/{{ site_name }}"
+    current_path: "{{ site_path }}/current"
+    shared_path: "{{ site_path }}/shared"
+    releases_path: "{{ site_path }}/releases"
+    release_name: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}"
+    release_path: "{{ releases_path }}/{{ release_name }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      fail:
+        msg: "Required variable 'site_name' is not defined"
+      when: site_name is not defined or site_name == ""
+
+    - name: Check if site exists
+      stat:
+        path: "{{ site_path }}"
+      register: site_exists
+
+    - name: Fail if site does not exist
+      fail:
+        msg: "Site directory '{{ site_path }}' does not exist"
+      when: not site_exists.stat.exists
+
+    - name: Check if current deployment exists
+      stat:
+        path: "{{ current_path }}"
+      register: current_exists
+
+    - name: Fail if no current deployment
+      fail:
+        msg: "No current deployment found for site '{{ site_name }}'"
+      when: not current_exists.stat.exists
+
+    - name: Get current git repository info
+      shell: |
+        cd "{{ current_path }}"
+        if [ -d .git ]; then
+          echo "git_repo"
+          git remote get-url origin
+        else
+          echo "release_structure"
+          find "{{ releases_path }}" -name .git -type d | head -1 | xargs dirname 2>/dev/null || echo "no_git"
+        fi
+      register: git_info
+      changed_when: false
+
+    - name: Determine deployment structure
+      set_fact:
+        deployment_type: "{{ git_info.stdout_lines[0] }}"
+        git_repo_url: "{{ git_info.stdout_lines[1] | default('') }}"
+
+    - name: Display deployment info
+      debug:
+        msg:
+          - "Updating Laravel site: {{ site_name }}"
+          - "Branch: {{ github_branch }}"
+          - "Deployment type: {{ deployment_type }}"
+
+  tasks:
+    # For direct git structure (simplified deployment)
+    - block:
+        - name: Stash local changes (if any)
+          shell: |
+            cd "{{ current_path }}"
+            if git status --porcelain | grep -q .; then
+              sudo -u {{ nginx_user }} git stash push -m "Auto-stash before update $(date)"
+              echo "stashed"
+            else
+              echo "clean"
+            fi
+          register: stash_result
+          become_user: "{{ nginx_user }}"
+
+        - name: Fetch latest changes
+          git:
+            repo: "{{ git_repo_url }}"
+            dest: "{{ current_path }}"
+            version: "{{ github_branch }}"
+            force: yes
+          become_user: "{{ nginx_user }}"
+
+        - name: Display stash info
+          debug:
+            msg: "Local changes were stashed before update"
+          when: stash_result.stdout == "stashed"
+
+      when: deployment_type == "git_repo"
+
+    # For release-based structure (zero-downtime deployment)
+    - block:
+        - name: Create new release directory
+          file:
+            path: "{{ release_path }}"
+            state: directory
+            owner: "{{ nginx_user }}"
+            group: "{{ nginx_group }}"
+            mode: '0755'
+
+        - name: Clone repository to new release
+          git:
+            repo: "{{ git_repo_url }}"
+            dest: "{{ release_path }}"
+            version: "{{ github_branch }}"
+            force: yes
+          become_user: "{{ nginx_user }}"
+
+        - name: Link shared .env file
+          file:
+            src: "{{ shared_path }}/.env"
+            dest: "{{ release_path }}/.env"
+            state: link
+            owner: "{{ nginx_user }}"
+            group: "{{ nginx_group }}"
+
+        - name: Link shared storage directory
+          file:
+            src: "{{ shared_path }}/storage"
+            dest: "{{ release_path }}/storage"
+            state: link
+            owner: "{{ nginx_user }}"
+            group: "{{ nginx_group }}"
+          ignore_errors: yes
+
+        - name: Install Composer dependencies
+          composer:
+            command: install
+            working_dir: "{{ release_path }}"
+            no_dev: yes
+            optimize_autoloader: yes
+          become_user: "{{ nginx_user }}"
+
+        - name: Set proper permissions
+          file:
+            path: "{{ release_path }}"
+            owner: "{{ nginx_user }}"
+            group: "{{ nginx_group }}"
+            recurse: yes
+            mode: u=rwX,g=rX,o=rX
+
+        - name: Update current symlink
+          file:
+            src: "{{ release_path }}"
+            dest: "{{ current_path }}"
+            state: link
+            owner: "{{ nginx_user }}"
+            group: "{{ nginx_group }}"
+
+        - name: Clean up old releases
+          shell: |
+            cd "{{ releases_path }}"
+            ls -t | tail -n +{{ releases_to_keep + 1 }} | xargs rm -rf
+          when: releases_to_keep | int > 0
+
+      when: deployment_type == "release_structure"
+
+    # Common tasks for both deployment types
+    - name: Update Composer dependencies
+      composer:
+        command: install
+        working_dir: "{{ current_path }}"
+        no_dev: yes
+        optimize_autoloader: yes
+      become_user: "{{ nginx_user }}"
+      ignore_errors: yes
+
+    - name: Run database migrations
+      shell: cd "{{ current_path }}" && sudo -u {{ nginx_user }} php artisan migrate --force
+      register: migration_result
+      failed_when: false
+      changed_when: "'Migrating:' in migration_result.stdout"
+
+    - name: Display migration results
+      debug:
+        msg: "{{ migration_result.stdout_lines }}"
+      when: migration_result.stdout_lines is defined and migration_result.stdout_lines | length > 0
+
+    - name: Clear and rebuild Laravel caches
+      shell: |
+        cd "{{ current_path }}"
+        sudo -u {{ nginx_user }} php artisan config:cache
+        sudo -u {{ nginx_user }} php artisan route:cache 2>/dev/null || true
+        sudo -u {{ nginx_user }} php artisan view:cache
+      ignore_errors: yes
+
+    - name: Check for package.json
+      stat:
+        path: "{{ current_path }}/package.json"
+      register: package_json_exists
+
+    - name: Check for npm build script
+      shell: cd "{{ current_path }}" && npm run --silent 2>/dev/null | grep -q "build"
+      register: npm_build_exists
+      failed_when: false
+      changed_when: false
+      when: package_json_exists.stat.exists
+
+    - name: Install npm dependencies
+      npm:
+        path: "{{ current_path }}"
+        production: yes
+      become_user: "{{ nginx_user }}"
+      when: package_json_exists.stat.exists and npm_build_exists.rc == 0
+      ignore_errors: yes
+
+    - name: Build frontend assets
+      shell: cd "{{ current_path }}" && sudo -u {{ nginx_user }} npm run build
+      when: package_json_exists.stat.exists and npm_build_exists.rc == 0
+      ignore_errors: yes
+      register: npm_build_result
+
+    - name: Display npm build results
+      debug:
+        msg: "Frontend assets built successfully"
+      when: npm_build_result is defined and npm_build_result.rc == 0
+
+    - name: Get current commit info
+      shell: cd "{{ current_path }}" && git log -1 --format="%h - %s (%cr)"
+      register: commit_info
+      changed_when: false
+      failed_when: false
+
+    - name: Display update summary
+      debug:
+        msg:
+          - "Laravel site '{{ site_name }}' updated successfully!"
+          - "Branch: {{ github_branch }}"
+          - "Deployment type: {{ deployment_type }}"
+          - "Latest commit: {{ commit_info.stdout | default('Unable to retrieve') }}"
+          - "Migrations: {{ 'Applied' if migration_result.changed else 'No new migrations' }}"
+          - "Frontend assets: {{ 'Built' if (npm_build_result is defined and npm_build_result.rc == 0) else 'Skipped' }}"

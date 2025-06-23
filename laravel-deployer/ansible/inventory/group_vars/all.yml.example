@@ -1,0 +1,43 @@
+# Default configuration for Laravel deployer
+
+# Web server configuration
+nginx_user: www-data
+nginx_group: www-data
+web_root: /var/www
+nginx_sites_available: /etc/nginx/sites-available
+nginx_sites_enabled: /etc/nginx/sites-enabled
+
+# Database configuration
+mysql_root_password: "{{ vault_mysql_root_password | default('changeme') }}"
+
+# Git configuration
+github_branch: main
+
+# Laravel configuration
+php_version: "8.1"
+composer_path: /usr/local/bin/composer
+releases_to_keep: 5
+
+# SSL configuration
+ssl_enabled: false
+ssl_cert_path: /etc/ssl/certs
+ssl_key_path: /etc/ssl/private
+
+# Backup configuration
+backup_path: /tmp/laravel_backups
+
+# Default site configuration
+default_database_charset: utf8mb4
+default_database_collation: utf8mb4_unicode_ci
+
+# Nginx configuration
+nginx_client_max_body_size: 64M
+nginx_worker_processes: auto
+nginx_worker_connections: 1024
+
+# Security headers
+security_headers:
+  x_frame_options: DENY
+  x_content_type_options: nosniff
+  x_xss_protection: "1; mode=block"
+  referrer_policy: strict-origin-when-cross-origin

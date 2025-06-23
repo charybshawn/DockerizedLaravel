@@ -1,0 +1,15 @@
+all:
+  hosts:
+    laravel-server:
+      ansible_host: 192.168.1.100
+      ansible_user: root
+      ansible_ssh_private_key_file: ~/.ssh/id_rsa
+  
+  children:
+    webservers:
+      hosts:
+        laravel-server:
+      vars:
+        # Override default variables here if needed
+        # nginx_user: www-data
+        # mysql_root_password: secure_password
