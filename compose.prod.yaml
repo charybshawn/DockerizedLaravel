@@ -51,48 +51,47 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
-  postgres:
-    image: postgres:16
-    restart: unless-stopped
-    user: postgres
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    environment:
-      - POSTGRES_DB=${POSTGRES_DATABASE:-app}
-      - POSTGRES_USER=${POSTGRES_USERNAME:-laravel}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secret}
-    volumes:
-      - postgres-data-production:/var/lib/postgresql/data
-    networks:
-      - laravel-production
+    #postgres:
+    #  image: postgres:16
+    #  restart: unless-stopped
+    #  user: postgres
+    #  ports:
+    #    - "${POSTGRES_PORT:-5432}:5432"
+    #  environment:
+    #    - POSTGRES_DB=${POSTGRES_DATABASE:-app}
+    #    - POSTGRES_USER=${POSTGRES_USERNAME:-laravel}
+    #    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secret}
+    #  volumes:
+    #    - postgres-data-production:/var/lib/postgresql/data
+    #  networks:
+    #    - laravel-production
     # Health check for PostgreSQL
     # -----------------------------------------------------------
     # Health checks allow Docker to determine if a service is operational.
     # The 'pg_isready' command checks if PostgreSQL is ready to accept connections.
     # This prevents dependent services from starting before the database is ready.
     # -----------------------------------------------------------
-    healthcheck:
-      test: [ "CMD", "pg_isready" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    #  healthcheck:
+    #    test: [ "CMD", "pg_isready" ]
+    #    interval: 10s
+    #    timeout: 5s
+    #    retries: 5
 
-  redis:
-    image: redis:alpine
-    restart: unless-stopped # Automatically restart unless the service is explicitly stopped
-    networks:
-      - laravel-production
+    #redis:
+    #  image: redis:alpine
+    #  restart: unless-stopped # Automatically restart unless the service is explicitly stopped
+    #  networks:
+    #    - laravel-production
     # Health check for Redis
     # -----------------------------------------------------------
     # Checks if Redis is responding to the 'PING' command.
     # This ensures that the service is not only running but also operational.
     # -----------------------------------------------------------
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    #  healthcheck:
+    #    test: [ "CMD", "redis-cli", "ping" ]
+    #    interval: 10s
+    #    timeout: 5s
+    #    retries: 3
 
 networks:
   # Attach the service to the 'laravel' network.
