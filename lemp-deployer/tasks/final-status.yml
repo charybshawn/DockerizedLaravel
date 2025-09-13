@@ -1,6 +1,0 @@
----
-- name: Display installation success message
-  debug:
-    msg: |
-      
-      [✓] LEMP stack installed successfully!
