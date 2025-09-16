@@ -1,0 +1,8 @@
+FROM serversideup/php:8.3-fpm-nginx
+COPY ../ /var/www/html
+RUN chown -R www-data:www-data /var/www/html
+RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+RUN composer install --no-dev --optimize-autoloader
+RUN php artisan config:cache
+RUN php artisan route:cache
+RUN php artisan view:cache
