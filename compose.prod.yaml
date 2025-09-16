@@ -55,15 +55,13 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
-    # user: postgres
-    env_file:
-      - ../.env
+    user: postgres
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
-    #  environment:
-    #    - POSTGRES_DB=${DB_DATABASE:-app}
-    #    - POSTGRES_USER=${DB_USERNAME:-laravel}
-    #    - POSTGRES_PASSWORD=${DB_PASSWORD:-secret}
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-app}
+      - POSTGRES_USER=${POSTGRES_USER:-laravel}
+      - POSTGRES_PASSWORD=${POSTGRESS_PASSWORD:-secret}
     volumes:
       - postgres-data-production:/var/lib/postgresql/data
     networks:
