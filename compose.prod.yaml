@@ -55,7 +55,7 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
-    user: postgres
+    # user: postgres
     env_file:
       - ../.env
     ports:
