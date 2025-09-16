@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Install Composer dependencies at runtime
+# -----------------------------------------------------------
+# This ensures database is available when Laravel scripts run
+# -----------------------------------------------------------
+echo "Installing Composer dependencies..."
+composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
+
 # Initialize storage directory if empty
 # -----------------------------------------------------------
 # If the storage directory is empty, copy the initial contents
