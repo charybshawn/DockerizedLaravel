@@ -62,9 +62,10 @@ services:
       - "${DB_PORT:-5432}:5432"
     environment:
       - POSTGRES_DB=${DB_DATABASE}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=!Secret7919@
     volumes:
       - postgres-data-production:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d
     networks:
       - laravel-production
     # Health check for PostgreSQL
