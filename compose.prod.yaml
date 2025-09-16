@@ -61,9 +61,9 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     environment:
-      - POSTGRES_DB=${DB_DATABASE:-app}
-      - POSTGRES_USER=${DB_USERNAME:-laravel}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-secret}
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres-data-production:/var/lib/postgresql/data
     networks:
