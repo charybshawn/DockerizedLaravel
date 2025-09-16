@@ -2,7 +2,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: ./docker/production/nginx/Dockerfile
+      dockerfile: ./production/nginx/Dockerfile
     restart: unless-stopped # Automatically restart unless the service is explicitly stopped
     volumes:
       # Mount the 'laravel-storage-production' volume to '/var/www/storage' inside the container.
@@ -30,7 +30,7 @@ services:
     # For the php-fpm service, we will create a custom image to install the necessary PHP extensions and setup proper permissions.
     build:
       context: .
-      dockerfile: ./docker/common/php-fpm/Dockerfile
+      dockerfile: ./common/php-fpm/Dockerfile
       target: production
     restart: unless-stopped
     volumes:
