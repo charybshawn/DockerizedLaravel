@@ -1,7 +1,7 @@
 services:
   web:
     build:
-      context: .
+      context: ..
       dockerfile: ./production/nginx/Dockerfile
     restart: unless-stopped # Automatically restart unless the service is explicitly stopped
     volumes:
@@ -29,7 +29,7 @@ services:
   php-fpm:
     # For the php-fpm service, we will create a custom image to install the necessary PHP extensions and setup proper permissions.
     build:
-      context: .
+      context: ..
       dockerfile: ./common/php-fpm/Dockerfile
       target: production
     restart: unless-stopped
