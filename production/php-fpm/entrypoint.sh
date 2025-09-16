@@ -8,6 +8,14 @@ set -e
 echo "Installing Composer dependencies..."
 composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
 
+# Install Node.js dependencies and build assets
+# -----------------------------------------------------------
+# Run after composer install so Laravel/Vite has access to vendor packages
+# -----------------------------------------------------------
+echo "Installing Node.js dependencies and building assets..."
+npm install
+npm run build
+
 # Initialize storage directory if empty
 # -----------------------------------------------------------
 # If the storage directory is empty, copy the initial contents

@@ -1,9 +1,8 @@
 # Stage 1: Build environment and Composer dependencies
 FROM php:8.4-fpm AS builder
 
-# Install system dependencies and PHP extensions required for Laravel + MySQL/PostgreSQL support
-# Some dependencies are required for PHP extensions only in the build stage
-# We don't need to install Node.js or build assets, as it was done in the Nginx image
+# Install system dependencies, PHP extensions, and Node.js for asset building
+# Node.js is now needed here since we'll build assets after composer install
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
@@ -14,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     libicu-dev \
     libzip-dev \
+    nodejs \
+    npm \
     && docker-php-ext-install -j$(nproc) \
     exif \
     pdo_mysql \
