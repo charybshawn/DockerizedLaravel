@@ -56,6 +56,8 @@ services:
     image: postgres:16
     restart: unless-stopped
     user: postgres
+    env_file:
+      - ../.env
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:
