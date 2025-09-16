@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www
 
 # Copy Laravel application code
-COPY . /var/www
+COPY ../ /var/www
 
 # Install Node.js dependencies and build assets
 RUN npm install && npm run build
@@ -25,7 +25,7 @@ FROM nginx:alpine
 # Replace the default Nginx configuration with our custom one
 # that is optimized for serving a Laravel application.
 # -----------------------------------------------------------
-COPY ./docker/production/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY ./production/nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Copy Laravel's public assets from the builder stage
 # -----------------------------------------------------------
