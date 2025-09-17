@@ -12,6 +12,9 @@ export GROUP_ID=$(id -g)
 
 echo "📋 Using USER_ID=$USER_ID and GROUP_ID=$GROUP_ID"
 
+# Rebuild with correct user mapping if needed
+echo "🔧 Checking if rebuild is needed for user mapping..."
+
 # Clean up any existing containers first
 echo "🧹 Cleaning up existing containers..."
 ./dev.sh stop 2>/dev/null || true
@@ -27,6 +30,11 @@ echo "🚀 Starting services (PostgreSQL + Redis)..."
 # Wait a moment for services to be ready
 echo "⏳ Waiting for services to be ready..."
 sleep 5
+
+# Create vendor directory on host to avoid permission issues
+echo "📁 Creating vendor directory..."
+mkdir -p ../vendor
+chmod 755 ../vendor
 
 # Install composer dependencies (now that DB is available)
 echo "📦 Installing Composer dependencies..."
