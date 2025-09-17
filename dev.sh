@@ -117,7 +117,7 @@ parse_start_flags() {
 case "$1" in
     start)
         flags=$(parse_start_flags "$@")
-        docker compose -f compose.dev.yaml $flags up -d
+        docker compose $flags up -d
         ;;
     stop)
         compose_file="compose.dev.yaml"
