@@ -2,6 +2,10 @@
 
 # Development environment manager
 
+# Default configuration - can be overridden by environment variables
+DEFAULT_COMPOSE_FILE="${COMPOSE_FILE:-compose.dev.yaml}"
+DEFAULT_ENV_FILE="${ENV_FILE:-../.env}"
+
 show_help() {
     echo "Usage: ./dev.sh [command] [flags]"
     echo ""
@@ -41,8 +45,8 @@ show_help() {
 parse_start_flags() {
     local profiles=""
     local compose_flags=""
-    local compose_file="compose.dev.yaml"
-    local env_file=""
+    local compose_file="$DEFAULT_COMPOSE_FILE"
+    local env_file="--env-file $DEFAULT_ENV_FILE"
 
     # Start with no services (explicit opt-in)
     local use_mysql=false
@@ -120,7 +124,8 @@ case "$1" in
         docker compose $flags up -d
         ;;
     stop)
-        compose_file="compose.dev.yaml"
+        compose_file="$DEFAULT_COMPOSE_FILE"
+        env_file="--env-file $DEFAULT_ENV_FILE"
         # Parse flags for stop command
         shift
         while [[ $# -gt 0 ]]; do
@@ -145,14 +150,43 @@ case "$1" in
                     ;;
             esac
         done
-        docker compose -f "$compose_file" down $volume_flag
+        docker compose -f "$compose_file" $env_file down $volume_flag
         ;;
     restart)
         docker compose -f compose.dev.yaml down
         docker compose -f compose.dev.yaml --profile mysql --profile redis up -d
         ;;
     logs)
-        docker compose -f compose.dev.yaml logs -f
+        compose_file="$DEFAULT_COMPOSE_FILE"
+        env_file="--env-file $DEFAULT_ENV_FILE"
+        shift
+        # Parse flags for logs command
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                -f)
+                    if [[ -n "$2" ]]; then
+                        compose_file="$2"
+                        shift 2
+                    else
+                        echo "Error: -f requires a compose file argument"
+                        exit 1
+                    fi
+                    ;;
+                --env-file)
+                    if [[ -n "$2" ]]; then
+                        env_file="--env-file $2"
+                        shift 2
+                    else
+                        echo "Error: --env-file requires a file argument"
+                        exit 1
+                    fi
+                    ;;
+                *)
+                    shift
+                    ;;
+            esac
+        done
+        docker compose -f "$compose_file" $env_file logs -f
         ;;
     composer)
         docker compose -f compose.dev.yaml exec app composer install
