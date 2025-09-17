@@ -14,9 +14,7 @@ services:
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
-    depends_on:
-      - mysql
-      - redis
+    # Remove depends_on - let the app handle database connections with retries
     profiles:
       - default
       - mysql
