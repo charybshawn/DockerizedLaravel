@@ -1,5 +1,8 @@
 FROM serversideup/php:8.3-fpm-nginx
 
+# Switch to root to install packages
+USER root
+
 # Install dependencies for extensions
 RUN apt-get update && apt-get install -y \
     libicu-dev \
@@ -23,3 +26,6 @@ RUN php artisan config:clear \
     && php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
+
+# Switch back to www-data user
+USER www-data
