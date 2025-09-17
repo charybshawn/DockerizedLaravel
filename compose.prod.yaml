@@ -32,6 +32,7 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
     env_file:
+      - ../.env
 
     volumes:
       - mysql_data:/var/lib/mysql
