@@ -10,6 +10,9 @@ services:
       - ../.env
     depends_on:
       - mysql
+    profiles:
+      - default
+      - mysql
       - postgres
       - redis
     healthcheck:
@@ -23,6 +26,7 @@ services:
     image: mysql:8.0
     container_name: laravel-mysql-prod
     profiles:
+      - default
       - mysql
     environment:
       - DB_HOST=${DB_HOST}
