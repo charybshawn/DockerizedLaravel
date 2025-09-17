@@ -25,9 +25,14 @@ services:
     container_name: laravel-mysql-prod
     profiles:
       - mysql
-
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    env_file:
+
     volumes:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
@@ -37,15 +42,23 @@ services:
     container_name: laravel-postgres-prod
     profiles:
       - postgres
-    env_file:
-      - ../.env
+    environment:
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   redis:
     image: redis:7
+    ports: ${REDIS_PORT}
+    profiles:
+      - redis
     container_name: laravel-redis-prod
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     restart: unless-stopped
 
 volumes:
