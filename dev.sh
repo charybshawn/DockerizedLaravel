@@ -190,27 +190,33 @@ case "$1" in
         docker compose -f "$compose_file" $env_file logs -f
         ;;
     composer)
-        docker compose -f compose.dev.yaml exec app composer install
+        shift
+        # Default to install if no arguments provided
+        if [[ $# -eq 0 ]]; then
+            docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec app composer install
+        else
+            docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec app composer "$@"
+        fi
         ;;
     artisan)
         shift
-        docker compose -f compose.dev.yaml exec app php artisan "$@"
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec app php artisan "$@"
         ;;
     npm)
         shift
-        docker compose -f compose.dev.yaml exec app npm "$@"
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec app npm "$@"
         ;;
     mysql)
-        docker compose -f compose.dev.yaml exec mysql mysql -u root -p
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec mysql mysql -u root -p
         ;;
     postgres)
-        docker compose -f compose.dev.yaml exec postgres psql -U ${DB_USERNAME:-laravel} -d ${DB_DATABASE:-laravel}
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec postgres psql -U ${DB_USERNAME:-laravel} -d ${DB_DATABASE:-laravel}
         ;;
     redis)
-        docker compose -f compose.dev.yaml exec redis redis-cli
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec redis redis-cli
         ;;
     build)
-        docker compose -f compose.dev.yaml build --no-cache
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" build --no-cache
         ;;
     clean)
         docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" down -v

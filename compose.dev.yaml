@@ -3,6 +3,9 @@ services:
     build:
       context: ..
       dockerfile: docker/common/dockerfile.dev
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
     container_name: laravel-app-dev
     ports:
       - "8000:8080"  # Different port for dev

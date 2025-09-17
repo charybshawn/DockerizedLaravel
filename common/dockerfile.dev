@@ -3,6 +3,10 @@ FROM serversideup/php:8.3-fpm-nginx
 # Switch to root to install packages
 USER root
 
+# Accept build args for user mapping
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
 # Install dependencies for extensions and development tools
 RUN apt-get update && apt-get install -y \
     libicu-dev \
@@ -20,21 +24,14 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
-# Copy application files
-COPY . /var/www/html
-
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Install composer dependencies (including dev dependencies)
-RUN composer install --optimize-autoloader
-
-# Install npm dependencies
-RUN npm install
-
-# Switch back to www-data user
-USER www-data
+# Create user with same UID/GID as host user
+RUN groupmod -g ${GROUP_ID} www-data \
+    && usermod -u ${USER_ID} -g ${GROUP_ID} www-data
 
 # Set working directory
 WORKDIR /var/www/html
+
+# Switch to www-data user (now matches host user)
+USER www-data
+
+# Note: Dependencies (composer/npm) will be installed at runtime when DB is available
