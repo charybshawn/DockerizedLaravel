@@ -39,6 +39,7 @@ show_help() {
     echo "Utility commands:"
     echo "  build         - Rebuild containers"
     echo "  clean         - Stop and remove all containers/volumes"
+    echo "  destroy       - Nuclear option: stop, remove containers, volumes, networks, images"
     echo "  shell         - Open shell in app container"
 }
 
@@ -212,10 +213,42 @@ case "$1" in
         docker compose -f compose.dev.yaml build --no-cache
         ;;
     clean)
-        docker compose -f compose.dev.yaml down -v
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" down -v
+        ;;
+    destroy)
+        echo "🚨 WARNING: This will completely destroy all containers, volumes, networks, and images!"
+        echo "This action cannot be undone."
+        read -p "Are you sure you want to continue? (type 'yes' to confirm): " confirmation
+
+        if [[ "$confirmation" == "yes" ]]; then
+            echo "🔥 Destroying everything..."
+
+            # Stop and remove everything from the compose file
+            docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" down -v --remove-orphans
+
+            # Remove all related images
+            echo "🗑️  Removing images..."
+            docker images | grep -E "(laravel|mysql|postgres|redis)" | awk '{print $3}' | xargs -r docker rmi -f
+
+            # Remove dangling volumes
+            echo "🗑️  Removing dangling volumes..."
+            docker volume prune -f
+
+            # Remove unused networks
+            echo "🗑️  Removing unused networks..."
+            docker network prune -f
+
+            # Optional: Clean up dangling images
+            echo "🗑️  Removing dangling images..."
+            docker image prune -f
+
+            echo "✅ Destruction complete! Everything has been removed."
+        else
+            echo "❌ Operation cancelled."
+        fi
         ;;
     shell)
-        docker compose -f compose.dev.yaml exec app bash
+        docker compose -f "$DEFAULT_COMPOSE_FILE" --env-file "$DEFAULT_ENV_FILE" exec app bash
         ;;
     *)
         show_help

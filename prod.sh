@@ -24,6 +24,7 @@ show_help() {
     echo "  build         - Build production images"
     echo "  deploy        - Build and start production"
     echo "  clean         - Stop and remove all containers/volumes"
+    echo "  destroy       - Nuclear option: stop, remove containers, volumes, networks, images"
     echo "  shell         - Open shell in app container"
     echo ""
     echo "Database commands:"
@@ -117,6 +118,40 @@ case "$1" in
         ;;
     clean)
         docker compose -f compose.prod.yaml down -v
+        ;;
+    destroy)
+        echo "🚨 DANGER: This will completely destroy all PRODUCTION containers, volumes, networks, and images!"
+        echo "🚨 This includes ALL DATA and cannot be undone!"
+        echo "🚨 Make sure you have backups before proceeding!"
+        read -p "Type 'DESTROY PRODUCTION' to confirm: " confirmation
+
+        if [[ "$confirmation" == "DESTROY PRODUCTION" ]]; then
+            echo "🔥 Destroying production environment..."
+
+            # Stop and remove everything from the compose file
+            docker compose -f compose.prod.yaml down -v --remove-orphans
+
+            # Remove all related images
+            echo "🗑️  Removing production images..."
+            docker images | grep -E "(laravel|mysql|postgres|redis)" | awk '{print $3}' | xargs -r docker rmi -f
+
+            # Remove dangling volumes
+            echo "🗑️  Removing dangling volumes..."
+            docker volume prune -f
+
+            # Remove unused networks
+            echo "🗑️  Removing unused networks..."
+            docker network prune -f
+
+            # Clean up dangling images
+            echo "🗑️  Removing dangling images..."
+            docker image prune -f
+
+            echo "☠️  PRODUCTION DESTRUCTION COMPLETE! Everything has been removed."
+            echo "⚠️  Don't forget to restore from backups when you rebuild!"
+        else
+            echo "❌ Operation cancelled. (Correct phrase: 'DESTROY PRODUCTION')"
+        fi
         ;;
     shell)
         docker compose -f compose.prod.yaml exec app bash
