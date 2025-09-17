@@ -1,6 +1,6 @@
 services:
   app:
-    image: serversideup/php:8.3-fpm-nginx # Or my-laravel-prod
+    build: .
     container_name: laravel-app-prod
     ports:
       - "80:8080"
