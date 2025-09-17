@@ -8,8 +8,6 @@ services:
       - ../:/var/www/html:ro
     env_file:
       - ../.env
-    depends_on:
-      - mysql
     profiles:
       - default
       - mysql
