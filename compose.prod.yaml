@@ -8,6 +8,10 @@ services:
       - ../:/var/www/html:ro
     env_file:
       - ../.env
+    depends_on:
+      - mysql
+      - postgres
+      - redis
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost/healthcheck" ]
       interval: 30s
