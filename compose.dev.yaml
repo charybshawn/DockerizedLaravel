@@ -1,56 +1,72 @@
-version: '3.8'
-
 services:
   app:
-    image: serversideup/php:8.3-fpm-nginx
+    build:
+      context: ..
+      dockerfile: docker/common/dockerfile.dev
     container_name: laravel-app-dev
     ports:
-      - "8080:8080"
+      - "8000:8080"  # Different port for dev
+      - "5173:5173"  # Vite dev server
     volumes:
-      - ../:/var/www/html
-    env_file:
-      - ../.env
-    depends_on:
-      - db
-      - redis
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/healthcheck" ]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-
-  db:
-    image: mysql:8.0
-    container_name: laravel-mysql-dev
-    profiles:
-      - mysql
+      - ../:/var/www/html  # Writable mount for development
     env_file:
       - ../.env
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootsecret}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
+      - APP_ENV=local
+      - APP_DEBUG=true
+    depends_on:
+      - mysql
+      - redis
+    profiles:
+      - default
+      - mysql
+      - postgres
+      - redis
 
-  db_postgres:
+  mysql:
+    image: mysql:8.0
+    container_name: laravel-mysql-dev
+    ports:
+      - "3306:3306"  # Expose for external tools
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    profiles:
+      - default
+      - mysql
+    restart: unless-stopped
+
+  postgres:
     image: postgres:16
     container_name: laravel-postgres-dev
+    ports:
+      - "5432:5432"  # Expose for external tools
+    environment:
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
     profiles:
       - postgres
-    env_file:
-      - ../.env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    restart: unless-stopped
 
   redis:
     image: redis:7
     container_name: laravel-redis-dev
     ports:
       - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    profiles:
+      - redis
+    restart: unless-stopped
 
 volumes:
-  mysql_data:
-  postgres_data:
+  mysql_dev_data:
+  postgres_dev_data:
+  redis_dev_data:
