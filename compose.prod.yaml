@@ -54,7 +54,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - ${REDIS_PORT}
+      - "${REDIS_PORT}:${REDIS_PORT}"
     profiles:
       - redis
     container_name: laravel-redis-prod
