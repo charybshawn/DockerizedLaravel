@@ -33,8 +33,8 @@ sleep 5
 
 # Create vendor directory on host to avoid permission issues
 echo "📁 Creating vendor directory..."
-mkdir -p ../vendor
-chmod 755 ../vendor
+mkdir -p ../../catapult/vendor
+chmod 755 ../../catapult/vendor
 
 # Install composer dependencies (now that DB is available)
 echo "📦 Installing Composer dependencies..."

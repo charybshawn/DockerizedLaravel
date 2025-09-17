@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: ..
+      context: ../../catapult
       dockerfile: docker/common/dockerfile.dev
       args:
         USER_ID: ${USER_ID:-1000}
@@ -11,9 +11,9 @@ services:
       - "8000:8080"  # Different port for dev
       - "5173:5173"  # Vite dev server
     volumes:
-      - ../:/var/www/html  # Writable mount for development
+      - ../../catapult:/var/www/html  # Writable mount for development
     env_file:
-      - ../.env
+      - ../../catapult/.env
     environment:
       - APP_ENV=local
       - APP_DEBUG=true

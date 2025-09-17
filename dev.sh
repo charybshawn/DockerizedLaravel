@@ -4,7 +4,7 @@
 
 # Default configuration - can be overridden by environment variables
 DEFAULT_COMPOSE_FILE="${COMPOSE_FILE:-compose.dev.yaml}"
-DEFAULT_ENV_FILE="${ENV_FILE:-../.env}"
+DEFAULT_ENV_FILE="${ENV_FILE:-../../catapult/.env}"
 
 show_help() {
     echo "Usage: ./dev.sh [command] [flags]"
