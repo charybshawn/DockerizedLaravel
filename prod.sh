@@ -2,6 +2,10 @@
 
 # Production environment manager
 
+# Default configuration - can be overridden by environment variables
+DEFAULT_COMPOSE_FILE="${COMPOSE_FILE:-compose.prod.yaml}"
+DEFAULT_ENV_FILE="${ENV_FILE:-../.env}"
+
 show_help() {
     echo "Usage: ./prod.sh [command] [flags]"
     echo ""
@@ -35,6 +39,8 @@ show_help() {
 parse_start_flags() {
     local profiles=""
     local compose_flags=""
+    local compose_file="$DEFAULT_COMPOSE_FILE"
+    local env_file="--env-file $DEFAULT_ENV_FILE"
 
     # Start with no services (explicit opt-in)
     local use_mysql=false
@@ -67,6 +73,24 @@ parse_start_flags() {
                 compose_flags="$compose_flags --no-recreate"
                 shift
                 ;;
+            -f)
+                if [[ -n "$2" ]]; then
+                    compose_file="$2"
+                    shift 2
+                else
+                    echo "Error: -f requires a compose file argument"
+                    exit 1
+                fi
+                ;;
+            --env-file)
+                if [[ -n "$2" ]]; then
+                    env_file="--env-file $2"
+                    shift 2
+                else
+                    echo "Error: --env-file requires a file argument"
+                    exit 1
+                fi
+                ;;
             *)
                 echo "Unknown flag: $1"
                 show_help
@@ -86,20 +110,52 @@ parse_start_flags() {
         profiles="$profiles --profile redis"
     fi
 
-    echo "$profiles$compose_flags"
+    echo "-f $compose_file $env_file $profiles$compose_flags"
 }
 
 case "$1" in
     start)
         flags=$(parse_start_flags "$@")
-        docker compose -f compose.prod.yaml $flags up -d
+        docker compose $flags up -d
         ;;
     stop)
-        if [[ "$2" == "-v" ]]; then
-            docker compose -f compose.prod.yaml down -v
-        else
-            docker compose -f compose.prod.yaml down
-        fi
+        compose_file="$DEFAULT_COMPOSE_FILE"
+        env_file="--env-file $DEFAULT_ENV_FILE"
+        volume_flag=""
+
+        shift
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                -v)
+                    volume_flag="-v"
+                    shift
+                    ;;
+                -f)
+                    if [[ -n "$2" ]]; then
+                        compose_file="$2"
+                        shift 2
+                    else
+                        echo "Error: -f requires a compose file argument"
+                        exit 1
+                    fi
+                    ;;
+                --env-file)
+                    if [[ -n "$2" ]]; then
+                        env_file="--env-file $2"
+                        shift 2
+                    else
+                        echo "Error: --env-file requires a file argument"
+                        exit 1
+                    fi
+                    ;;
+                *)
+                    echo "Unknown flag for stop: $1"
+                    show_help
+                    exit 1
+                    ;;
+            esac
+        done
+        docker compose -f "$compose_file" $env_file down $volume_flag
         ;;
     restart)
         docker compose -f compose.prod.yaml down
